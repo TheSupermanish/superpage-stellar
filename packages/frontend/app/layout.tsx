@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono, Sora } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-sans",
+  subsets: ["latin"],
+});
+
+const sora = Sora({
+  variable: "--font-display",
   subsets: ["latin"],
 });
 
@@ -14,8 +19,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SuperPage - Monetize Anything with Crypto",
-  description: "Paywall your APIs, files, articles, and more with USDC on SKALE. AI-agent ready payments for the web.",
+  title: "SuperPage - Monetize Anything with Crypto on Base",
+  description: "Paywall your APIs, files, articles, and stores with USDC on Base. AI-agent ready payments powered by HTTP 402.",
 };
 
 export default function RootLayout({
@@ -32,7 +37,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}
+        className={`${spaceGrotesk.variable} ${sora.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}
       >
         <Providers>{children}</Providers>
       </body>
