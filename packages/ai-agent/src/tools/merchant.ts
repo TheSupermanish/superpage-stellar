@@ -10,6 +10,7 @@ import * as ui from "../ui.js";
 
 export interface MerchantState {
   authToken?: string;
+  tokenExpiresAt?: number;
 }
 
 function authHeaders(token: string): Record<string, string> {
@@ -19,9 +20,37 @@ function authHeaders(token: string): Record<string, string> {
   };
 }
 
+/** Safely extract an error message from a parsed JSON error body. */
+function extractErrorMsg(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "error" in err) {
+    return String((err as Record<string, unknown>).error);
+  }
+  return fallback;
+}
+
+/** Decode JWT payload without verification (tokens are already trusted from our own server). */
+function decodeJwtExp(token: string): number | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf-8")
+    );
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
 function requireAuth(state: MerchantState): string | null {
   if (!state.authToken) {
     return "Not authenticated. Call merchant_login first.";
+  }
+  // Check token expiration
+  if (state.tokenExpiresAt && Date.now() >= state.tokenExpiresAt) {
+    state.authToken = undefined;
+    state.tokenExpiresAt = undefined;
+    return "Auth token has expired. Call merchant_login again.";
   }
   return null;
 }
@@ -49,7 +78,8 @@ export function createMerchantTools(
         });
         if (!nonceRes.ok) {
           const err = await nonceRes.json().catch(() => ({}));
-          return { success: false, error: `Nonce request failed: ${(err as any).error || nonceRes.statusText}` };
+          const errMsg = err && typeof err === "object" && "error" in err ? (err as Record<string, unknown>).error : nonceRes.statusText;
+          return { success: false, error: `Nonce request failed: ${errMsg}` };
         }
         const { nonce, message } = (await nonceRes.json()) as {
           nonce: string;
@@ -71,15 +101,18 @@ export function createMerchantTools(
         });
         if (!verifyRes.ok) {
           const err = await verifyRes.json().catch(() => ({}));
-          return { success: false, error: `Verification failed: ${(err as any).error || verifyRes.statusText}` };
+          const errMsg = err && typeof err === "object" && "error" in err ? (err as Record<string, unknown>).error : verifyRes.statusText;
+          return { success: false, error: `Verification failed: ${errMsg}` };
         }
         const { token, creator } = (await verifyRes.json()) as {
           token: string;
           creator: Record<string, unknown>;
         };
 
-        // Store token
+        // Store token and its expiration time
         state.authToken = token;
+        const exp = decodeJwtExp(token);
+        state.tokenExpiresAt = exp ? exp * 1000 : undefined; // convert seconds to ms
         ui.hint(`Authenticated as ${creator.username || creator.walletAddress}`);
 
         // Detect incomplete profile
@@ -118,7 +151,7 @@ export function createMerchantTools(
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          return { success: false, error: (err as any).error || res.statusText };
+          return { success: false, error: extractErrorMsg(err, res.statusText) };
         }
         const { creator } = (await res.json()) as {
           creator: Record<string, unknown>;
@@ -181,7 +214,7 @@ export function createMerchantTools(
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          return { success: false, error: (err as any).error || res.statusText };
+          return { success: false, error: extractErrorMsg(err, res.statusText) };
         }
         const { creator } = (await res.json()) as {
           creator: Record<string, unknown>;
@@ -257,7 +290,7 @@ export function createMerchantTools(
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          return { success: false, error: (err as any).error || res.statusText };
+          return { success: false, error: extractErrorMsg(err, res.statusText) };
         }
         const { resource } = (await res.json()) as {
           resource: Record<string, unknown>;
@@ -295,7 +328,7 @@ export function createMerchantTools(
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          return { success: false, error: (err as any).error || res.statusText };
+          return { success: false, error: extractErrorMsg(err, res.statusText) };
         }
         const { resources } = (await res.json()) as {
           resources: Record<string, unknown>[];
@@ -336,7 +369,7 @@ export function createMerchantTools(
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          return { success: false, error: (err as any).error || res.statusText };
+          return { success: false, error: extractErrorMsg(err, res.statusText) };
         }
         const { resource } = (await res.json()) as {
           resource: Record<string, unknown>;
@@ -368,7 +401,7 @@ export function createMerchantTools(
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          return { success: false, error: (err as any).error || res.statusText };
+          return { success: false, error: extractErrorMsg(err, res.statusText) };
         }
         return { success: true, message: `Resource ${resourceId} deleted` };
       } catch (err: any) {

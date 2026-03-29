@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { Address } from "viem";
+import { isAddress, type Address } from "viem";
 import type { Wallet } from "../wallet.js";
 import * as ui from "../ui.js";
 
@@ -18,9 +18,28 @@ export function createMakePaymentTool(
       amount: z
         .string()
         .describe("Amount in base units (from paymentRequirements.amount)"),
+      expectedAmount: z
+        .string()
+        .optional()
+        .describe(
+          "Expected amount from paymentRequirements.amount — used to verify the payment matches the requirement"
+        ),
     }),
-    execute: async ({ payTo, amount }) => {
+    execute: async ({ payTo, amount, expectedAmount }) => {
       try {
+        // Validate recipient address
+        if (!isAddress(payTo)) {
+          return { success: false, error: `Invalid Ethereum address: ${payTo}` };
+        }
+
+        // Validate amount matches expected payment requirement
+        if (expectedAmount && amount !== expectedAmount) {
+          return {
+            success: false,
+            error: `Amount mismatch: sending ${amount} but payment requirement expects ${expectedAmount}`,
+          };
+        }
+
         const balance = await wallet.getUsdcBalance();
         const displayAmount = wallet.formatUsdc(amount);
 

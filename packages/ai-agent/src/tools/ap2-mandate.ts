@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { A2AClient } from "../a2a-client.js";
+import type { A2ATask, Part } from "../types.js";
 
 const AP2_DATA_KEYS = {
   INTENT_MANDATE: "ap2.mandates.IntentMandate",
@@ -36,41 +37,49 @@ export function createAP2MandateTools(client: A2AClient) {
     }) => {
       const expiryMs = (expiresInMinutes || 30) * 60 * 1000;
 
-      const response = await client.sendRpc("message/send", {
-        message: {
-          role: "user",
-          parts: [
-            {
-              type: "data",
-              data: {
-                [AP2_DATA_KEYS.INTENT_MANDATE]: {
-                  natural_language_description: description,
-                  user_cart_confirmation_required:
-                    userConfirmationRequired ?? true,
-                  skus,
-                  intent_expiry: new Date(
-                    Date.now() + expiryMs
-                  ).toISOString(),
+      let response;
+      try {
+        response = await client.sendRpc("message/send", {
+          message: {
+            role: "user",
+            parts: [
+              {
+                type: "data",
+                data: {
+                  [AP2_DATA_KEYS.INTENT_MANDATE]: {
+                    natural_language_description: description,
+                    user_cart_confirmation_required:
+                      userConfirmationRequired ?? true,
+                    skus,
+                    intent_expiry: new Date(
+                      Date.now() + expiryMs
+                    ).toISOString(),
+                  },
                 },
               },
-            },
-          ],
-        },
-      });
+            ],
+          },
+        });
+      } catch (err) {
+        return { success: false, error: `Network error: ${err instanceof Error ? err.message : String(err)}` };
+      }
 
       if (response.error) {
         return { success: false, error: response.error.message };
       }
 
-      const task = response.result as any;
-      // Extract cart mandate or payment requirements from response
-      const dataPart = task?.status?.message?.parts?.find(
-        (p: any) => p.type === "data"
-      );
-      const cartMandate =
-        dataPart?.data?.["ap2.mandates.CartMandate"];
-      const paymentRequirements =
-        dataPart?.data?.paymentRequirements;
+      const result = response.result;
+      if (!result || typeof result !== "object") {
+        return { success: false, error: "Invalid response from server" };
+      }
+      const task = result as A2ATask;
+      const parts: Part[] = task.status?.message?.parts || [];
+      const dataPart = parts.find((p) => p.type === "data");
+      const dataPayload =
+        dataPart?.type === "data" ? dataPart.data : undefined;
+      const cartMandate = dataPayload?.["ap2.mandates.CartMandate"];
+      const paymentRequirements = dataPayload?.paymentRequirements;
+      const textPart = parts.find((p) => p.type === "text");
 
       return {
         success: task.status.state !== "failed",
@@ -78,9 +87,7 @@ export function createAP2MandateTools(client: A2AClient) {
         state: task.status.state,
         cartMandate,
         paymentRequirements,
-        message: task.status.message?.parts?.find(
-          (p: any) => p.type === "text"
-        )?.text,
+        message: textPart?.type === "text" ? textPart.text : undefined,
       };
     },
   });
@@ -105,57 +112,67 @@ export function createAP2MandateTools(client: A2AClient) {
         .describe("Chain ID (default 103698795)"),
     }),
     execute: async ({ taskId, transactionHash, network, chainId }) => {
-      const response = await client.sendRpc("message/send", {
-        message: {
-          role: "user",
-          parts: [
-            {
-              type: "data",
-              data: {
-                [AP2_DATA_KEYS.PAYMENT_MANDATE]: {
-                  payment_mandate_contents: {
-                    payment_mandate_id: `pm_${Date.now()}`,
-                    payment_details_id: taskId,
-                    payment_details_total: {
-                      label: "Total",
-                      amount: { currency: "USD", value: 0 },
-                    },
-                    payment_response: {
-                      request_id: taskId,
-                      method_name: "https://www.x402.org/",
-                      details: {
-                        transactionHash,
-                        network:
-                          network || "bite-v2-sandbox",
-                        chainId: chainId || 103698795,
-                        timestamp: Date.now(),
+      let response;
+      try {
+        response = await client.sendRpc("message/send", {
+          message: {
+            role: "user",
+            parts: [
+              {
+                type: "data",
+                data: {
+                  [AP2_DATA_KEYS.PAYMENT_MANDATE]: {
+                    payment_mandate_contents: {
+                      payment_mandate_id: `pm_${Date.now()}`,
+                      payment_details_id: taskId,
+                      payment_details_total: {
+                        label: "Total",
+                        amount: { currency: "USD", value: 0 },
                       },
+                      payment_response: {
+                        request_id: taskId,
+                        method_name: "https://www.x402.org/",
+                        details: {
+                          transactionHash,
+                          network:
+                            network || "bite-v2-sandbox",
+                          chainId: chainId || 103698795,
+                          timestamp: Date.now(),
+                        },
+                      },
+                      merchant_agent: "",
+                      timestamp: new Date().toISOString(),
                     },
-                    merchant_agent: "",
-                    timestamp: new Date().toISOString(),
                   },
+                  taskId,
                 },
-                taskId,
               },
-            },
-          ],
-        },
-      });
+            ],
+          },
+        });
+      } catch (err) {
+        return { success: false, error: `Network error: ${err instanceof Error ? err.message : String(err)}` };
+      }
 
       if (response.error) {
         return { success: false, error: response.error.message };
       }
 
-      const task = response.result as any;
+      const result = response.result;
+      if (!result || typeof result !== "object") {
+        return { success: false, error: "Invalid response from server" };
+      }
+      const task = result as A2ATask;
+      const parts: Part[] = task.status?.message?.parts || [];
+      const textPart = parts.find((p) => p.type === "text");
+
       return {
         success: task.status.state === "completed",
         taskId: task.id,
         state: task.status.state,
-        message: task.status.message?.parts?.find(
-          (p: any) => p.type === "text"
-        )?.text,
+        message: textPart?.type === "text" ? textPart.text : undefined,
         receipt: task.artifacts?.find(
-          (a: any) => a.name === "payment-receipt"
+          (a) => a.name === "payment-receipt"
         ),
       };
     },

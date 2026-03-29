@@ -10,6 +10,16 @@ import type {
   Part,
 } from "./types.js";
 
+/** Safely extract an array property from an unknown parsed JSON value. */
+function extractArray(data: unknown, key: string): unknown[] {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object" && key in data) {
+    const val = (data as Record<string, unknown>)[key];
+    return Array.isArray(val) ? val : [];
+  }
+  return [];
+}
+
 export class A2AClient {
   private a2aEndpoint: string;
   private baseUrl: string;
@@ -22,7 +32,14 @@ export class A2AClient {
 
   /** Fetch the AgentCard from /.well-known/agent.json */
   async getAgentCard(): Promise<AgentCard> {
-    const res = await fetch(`${this.baseUrl}/.well-known/agent.json`);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/.well-known/agent.json`);
+    } catch (err) {
+      throw new Error(
+        `Network error fetching AgentCard: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     if (!res.ok)
       throw new Error(
         `Failed to fetch AgentCard: ${res.status} ${res.statusText}`
@@ -38,11 +55,18 @@ export class A2AClient {
     const id = ++this.requestIdCounter;
     const body: A2AJsonRpcRequest = { jsonrpc: "2.0", id, method, params };
 
-    const res = await fetch(this.a2aEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(this.a2aEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      throw new Error(
+        `Network error in A2A request: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
 
     if (!res.ok)
       throw new Error(`A2A request failed: ${res.status} ${res.statusText}`);
@@ -74,25 +98,46 @@ export class A2AClient {
   // ── REST helpers for browsing ──
 
   async listStores(): Promise<unknown[]> {
-    const res = await fetch(`${this.baseUrl}/x402/stores`);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/x402/stores`);
+    } catch (err) {
+      throw new Error(
+        `Network error listing stores: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     if (!res.ok) throw new Error(`Failed to list stores: ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data as any).stores || [];
+    const data: unknown = await res.json();
+    return extractArray(data, "stores");
   }
 
   async listProducts(storeId: string): Promise<unknown[]> {
-    const res = await fetch(
-      `${this.baseUrl}/x402/stores/${storeId}/products`
-    );
+    let res: Response;
+    try {
+      res = await fetch(
+        `${this.baseUrl}/x402/stores/${storeId}/products`
+      );
+    } catch (err) {
+      throw new Error(
+        `Network error listing products: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     if (!res.ok) throw new Error(`Failed to list products: ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data as any).products || [];
+    const data: unknown = await res.json();
+    return extractArray(data, "products");
   }
 
   async listResources(): Promise<unknown[]> {
-    const res = await fetch(`${this.baseUrl}/x402/resources`);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/x402/resources`);
+    } catch (err) {
+      throw new Error(
+        `Network error listing resources: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     if (!res.ok) throw new Error(`Failed to list resources: ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data as any).resources || [];
+    const data: unknown = await res.json();
+    return extractArray(data, "resources");
   }
 }

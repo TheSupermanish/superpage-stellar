@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { A2AClient } from "../a2a-client.js";
+import type { A2ATask, DataPart, Part } from "../types.js";
 import type { PurchaseCache } from "./index.js";
 
 export function createSubmitPaymentTool(
@@ -29,51 +30,62 @@ export function createSubmitPaymentTool(
         .describe("Chain ID (default 103698795)"),
     }),
     execute: async ({ taskId, transactionHash, network, chainId }) => {
-      const response = await client.sendMessage({
-        action: "submit-payment",
-        taskId,
-        payment: {
-          transactionHash,
-          network: network || "bite-v2-sandbox",
-          chainId: chainId || 103698795,
-          timestamp: Date.now(),
-        },
-      });
+      let response;
+      try {
+        response = await client.sendMessage({
+          action: "submit-payment",
+          taskId,
+          payment: {
+            transactionHash,
+            network: network || "bite-v2-sandbox",
+            chainId: chainId || 103698795,
+            timestamp: Date.now(),
+          },
+        });
+      } catch (err) {
+        return { success: false, error: `Network error: ${err instanceof Error ? err.message : String(err)}` };
+      }
 
       if (response.error) {
         return { success: false, error: response.error.message };
       }
 
-      const task = response.result as any;
+      const result = response.result;
+      if (!result || typeof result !== "object") {
+        return { success: false, error: "Invalid response from server" };
+      }
+      const task = result as A2ATask;
 
       // Extract resource content from artifacts
       const resourceArtifact = task.artifacts?.find(
-        (a: any) => a.name === "resource-content"
+        (a) => a.name === "resource-content"
       );
-      const resourceData = resourceArtifact?.parts?.find(
-        (p: any) => p.type === "data"
-      )?.data;
+      const resourceDataPart = resourceArtifact?.parts?.find(
+        (p): p is DataPart => p.type === "data"
+      );
+      const resourceData = resourceDataPart?.data;
 
       // Cache the resource content for future requests
       if (resourceData?.resourceId) {
-        cache.set(resourceData.resourceId as string, {
+        cache.set(String(resourceData.resourceId), {
           content: resourceData,
           taskId: task.id,
           txHash: transactionHash,
         });
       }
 
-      // Extract text parts from status message
-      const statusParts = task.status?.message?.parts || [];
+      // Extract text and data parts from status message
+      const statusParts: Part[] = task.status?.message?.parts || [];
       const resourceContent = statusParts.find(
-        (p: any) => p.type === "data" && p.data?.content
+        (p): p is DataPart => p.type === "data" && !!p.data?.content
       )?.data;
+      const textPart = statusParts.find((p) => p.type === "text");
 
       return {
         success: task.status.state === "completed",
         taskId: task.id,
         state: task.status.state,
-        message: statusParts.find((p: any) => p.type === "text")?.text,
+        message: textPart?.type === "text" ? textPart.text : undefined,
         resourceContent: resourceContent || resourceData || null,
         artifacts: task.artifacts,
       };
