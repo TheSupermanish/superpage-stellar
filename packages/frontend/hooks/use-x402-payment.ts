@@ -205,6 +205,7 @@ export function useX402Payment() {
         functionName: "transfer",
         args: [requirements.recipient as `0x${string}`, BigInt(requirements.amount)],
         chainId: requirements.chainId || CURRENT_CHAIN_ID,
+        gas: 500_000n,
       });
 
       setTxHash(hash);
