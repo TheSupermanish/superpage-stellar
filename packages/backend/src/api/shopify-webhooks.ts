@@ -17,7 +17,11 @@ function verifyShopifyWebhook(req: Request, secret: string): boolean {
     .update(body, "utf8")
     .digest("base64");
 
-  return hash === hmacHeader;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmacHeader));
+  } catch {
+    return false;
+  }
 }
 
 /**

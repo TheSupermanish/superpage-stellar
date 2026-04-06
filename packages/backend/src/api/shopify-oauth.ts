@@ -172,7 +172,11 @@ function verifyHmac(query: any, hmac: string): boolean {
     .update(queryString)
     .digest("hex");
   
-  return hash === hmac;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmac));
+  } catch {
+    return false;
+  }
 }
 
 // This handles the initial OAuth redirect - initiates the OAuth flow
