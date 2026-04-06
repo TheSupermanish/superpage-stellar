@@ -25,8 +25,40 @@ const fileStorage = multer.diskStorage({
   },
 });
 
+// Allowed file types for general uploads
+const ALLOWED_FILE_TYPES = new Set([
+  "application/pdf",
+  "application/json",
+  "text/csv",
+  "text/plain",
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "audio/mpeg",
+  "audio/wav",
+  "application/zip",
+  "application/gzip",
+  "application/x-tar",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+
+const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (ALLOWED_FILE_TYPES.has(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`File type ${file.mimetype} is not allowed`));
+  }
+};
+
 export const upload = multer({
   storage: fileStorage,
+  fileFilter,
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB limit
   },
@@ -43,8 +75,17 @@ const avatarStorage = multer.diskStorage({
   },
 });
 
+const avatarFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (file.mimetype.startsWith("image/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only image files are allowed for avatars"));
+  }
+};
+
 export const avatarUpload = multer({
   storage: avatarStorage,
+  fileFilter: avatarFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
@@ -82,7 +123,7 @@ export async function handleFileUpload(req: AuthenticatedRequest, res: Response)
     });
   } catch (err: any) {
     console.error("[FileUpload] Error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Upload failed" });
   }
 }
 
@@ -119,6 +160,6 @@ export async function handleAvatarUpload(req: AuthenticatedRequest, res: Respons
     });
   } catch (err: any) {
     console.error("[AvatarUpload] Error:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Upload failed" });
   }
 }

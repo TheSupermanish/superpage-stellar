@@ -70,8 +70,20 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use("/files", express.static(path.join(__dirname, "../public/files")));
 
-// Serve uploaded files from disk
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// Serve avatar uploads inline (needed for <img> and CSS background-image)
+app.use("/uploads/avatars", express.static(path.join(process.cwd(), "uploads", "avatars"), {
+  setHeaders: (res) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+  },
+}));
+
+// Serve all other uploads as forced download to prevent stored XSS
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads"), {
+  setHeaders: (res) => {
+    res.setHeader("Content-Disposition", "attachment");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+  },
+}));
 
 // Health check
 app.get("/health", (_req, res) => {
