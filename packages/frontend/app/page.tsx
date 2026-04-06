@@ -37,12 +37,12 @@ export default function LandingPage() {
         <div className="absolute bottom-10 left-[30%] w-56 h-56 rounded-full bg-sp-gold/10 blur-3xl animate-float-slow pointer-events-none" style={{ animationDelay: "4s" }} />
 
         {/* Flying logo coins — smooth floating */}
-        <Image src="/logo.png" alt="" width={80} height={80} className="absolute top-28 left-[3%] w-20 h-20 object-contain opacity-15 coin-float-1 pointer-events-none select-none hidden md:block" />
-        <Image src="/logo.png" alt="" width={112} height={112} className="absolute top-[60%] left-[7%] w-28 h-28 object-contain opacity-10 coin-float-3 pointer-events-none select-none hidden lg:block" />
-        <Image src="/logo.png" alt="" width={96} height={96} className="absolute top-24 right-[4%] w-24 h-24 object-contain opacity-15 coin-float-2 pointer-events-none select-none hidden md:block" />
-        <Image src="/logo.png" alt="" width={64} height={64} className="absolute top-[55%] right-[6%] w-16 h-16 object-contain opacity-20 coin-float-4 pointer-events-none select-none hidden md:block" />
-        <Image src="/logo.png" alt="" width={56} height={56} className="absolute bottom-24 right-[20%] w-14 h-14 object-contain opacity-8 coin-float-1 pointer-events-none select-none hidden lg:block" />
-        <Image src="/logo.png" alt="" width={48} height={48} className="absolute bottom-36 left-[18%] w-12 h-12 object-contain opacity-8 coin-float-2 pointer-events-none select-none hidden lg:block" />
+        <Image src="/logo.png" alt="" role="presentation" width={80} height={80} className="absolute top-28 left-[3%] w-20 h-20 object-contain opacity-15 coin-float-1 pointer-events-none select-none hidden md:block" />
+        <Image src="/logo.png" alt="" role="presentation" width={112} height={112} className="absolute top-[60%] left-[7%] w-28 h-28 object-contain opacity-10 coin-float-3 pointer-events-none select-none hidden lg:block" />
+        <Image src="/logo.png" alt="" role="presentation" width={96} height={96} className="absolute top-24 right-[4%] w-24 h-24 object-contain opacity-15 coin-float-2 pointer-events-none select-none hidden md:block" />
+        <Image src="/logo.png" alt="" role="presentation" width={64} height={64} className="absolute top-[55%] right-[6%] w-16 h-16 object-contain opacity-20 coin-float-4 pointer-events-none select-none hidden md:block" />
+        <Image src="/logo.png" alt="" role="presentation" width={56} height={56} className="absolute bottom-24 right-[20%] w-14 h-14 object-contain opacity-8 coin-float-1 pointer-events-none select-none hidden lg:block" />
+        <Image src="/logo.png" alt="" role="presentation" width={48} height={48} className="absolute bottom-36 left-[18%] w-12 h-12 object-contain opacity-8 coin-float-2 pointer-events-none select-none hidden lg:block" />
 
         <div className="max-w-5xl mx-auto text-center space-y-8 px-4">
           {/* Badge */}
