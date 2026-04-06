@@ -165,7 +165,7 @@ export async function handleResourceAccess(req: Request, res: Response) {
     console.log(`[x402-gateway] Payment header present - verifying`);
 
     const x402Server = await initializeX402Server();
-    
+
     // Parse payment header
     let paymentData: any;
     try {
@@ -173,6 +173,19 @@ export async function handleResourceAccess(req: Request, res: Response) {
     } catch (err: any) {
       console.error("[x402-gateway] Payment header parse error:", err.message);
       return res.status(400).json({ error: "Invalid payment header format" });
+    }
+
+    // Check for tx hash replay — reject if already used
+    const txHash = paymentData.transactionHash || paymentData.txHash || paymentData.signature || paymentData.payload?.signature;
+    if (txHash) {
+      const existingLog = await AccessLog.findOne({ paymentSignature: txHash }).lean();
+      if (existingLog) {
+        console.warn(`[x402-gateway] Rejected replayed tx hash: ${txHash}`);
+        return res.status(402).json({
+          error: "Payment already used",
+          details: "This transaction has already been used to access a resource",
+        });
+      }
     }
 
     console.log(`[x402-gateway] Payment data parsed (network: ${paymentData.network})`);
@@ -239,7 +252,7 @@ export async function handleResourceAccess(req: Request, res: Response) {
       console.warn("[x402-gateway] Could not extract wallet from tx receipt:", receiptErr.message);
     }
 
-    // Log the access
+    // Log the access — duplicate paymentSignature means tx replay, must reject
     try {
       await logAccess(
         resource._id.toString(),
@@ -250,8 +263,16 @@ export async function handleResourceAccess(req: Request, res: Response) {
         payerWallet
       );
     } catch (logErr: any) {
+      // Duplicate key error on paymentSignature = tx hash replay
+      if (logErr.code === 11000 || logErr.message?.includes("duplicate key")) {
+        console.warn(`[x402-gateway] Rejected duplicate tx hash at insert: ${txSignature}`);
+        return res.status(402).json({
+          error: "Payment already used",
+          details: "This transaction has already been used to access a resource",
+        });
+      }
       console.error("[x402-gateway] Failed to log access:", logErr.message);
-      // Don't fail the request if logging fails — payment was verified
+      // Non-duplicate errors: still serve content (payment was verified)
     }
 
     // Serve content based on type
@@ -262,7 +283,7 @@ export async function handleResourceAccess(req: Request, res: Response) {
 
   } catch (err: any) {
     console.error("[x402-gateway] Error:", err);
-    return res.status(500).json({ error: err.message || "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 }
 
@@ -362,7 +383,7 @@ async function serveApiProxy(resource: any, req: Request, res: Response) {
 
   } catch (err: any) {
     console.error("[x402-gateway] API proxy error:", err);
-    return res.status(502).json({ error: "Failed to proxy request", details: err.message });
+    return res.status(502).json({ error: "Failed to proxy request" });
   }
 }
 
@@ -530,7 +551,7 @@ async function serveArticle(resource: any, req: Request, res: Response) {
 
     } catch (err: any) {
       console.error("[x402-gateway] Blog fetch error:", err);
-      return res.status(502).json({ error: "Failed to fetch blog content", details: err.message });
+      return res.status(502).json({ error: "Failed to fetch blog content" });
     }
   }
 
@@ -565,7 +586,7 @@ async function serveArticle(resource: any, req: Request, res: Response) {
 
     } catch (err: any) {
       console.error("[x402-gateway] Sitemap fetch error:", err);
-      return res.status(502).json({ error: "Failed to fetch RSS/sitemap", details: err.message });
+      return res.status(502).json({ error: "Failed to fetch RSS/sitemap" });
     }
   }
 
@@ -710,7 +731,7 @@ export async function handleListX402Resources(req: Request, res: Response) {
 
   } catch (err: any) {
     console.error("[x402-gateway] List error:", err);
-    return res.status(500).json({ error: err.message || "Server error" });
+    return res.status(500).json({ error: "Server error" });
   }
 }
 

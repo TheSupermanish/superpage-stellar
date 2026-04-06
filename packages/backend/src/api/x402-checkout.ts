@@ -371,6 +371,20 @@ export async function handleCheckout(req: Request, res: Response) {
       // Parse payment proof from header
       const paymentData = parsePaymentHeader(xPaymentHeader);
 
+      // Check for tx hash replay — reject if already used in another order
+      const preCheckTxHash = paymentData.transactionHash || paymentData.txHash || paymentData.signature;
+      if (preCheckTxHash) {
+        const existingOrder = await Order.findOne({ transactionHash: preCheckTxHash }).lean();
+        if (existingOrder) {
+          await OrderIntent.updateOne({ id: orderIntentId }, { status: "pending" });
+          console.warn(`[${requestId}] Rejected replayed tx hash in checkout: ${preCheckTxHash}`);
+          return res.status(402).json({
+            error: "Payment already used",
+            details: "This transaction has already been used for another order",
+          });
+        }
+      }
+
       // Create payment requirements for verification
       // Use the store's configured network and asset
       const storeNetwork = store.networks?.[0] || "devnet";
