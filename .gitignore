@@ -31,3 +31,9 @@ logs/security/
 # Uploaded files
 uploads/
 data/
+
+# Agent logs (contain tx hashes and operational details)
+agent_log.json
+
+# Claude local settings (may contain keys in allowlists)
+.claude/settings.local.json
