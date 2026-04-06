@@ -103,8 +103,8 @@ export async function handleVerifySignature(req: Request, res: Response) {
 
     const normalizedAddress = walletAddress.toLowerCase();
 
-    // Verify nonce exists and is valid
-    const nonceData = await AuthNonce.findOne({
+    // Atomically find and delete nonce (single-use, prevents race conditions)
+    const nonceData = await AuthNonce.findOneAndDelete({
       walletAddress: normalizedAddress,
       nonce,
       expiresAt: { $gt: new Date() },
@@ -112,14 +112,6 @@ export async function handleVerifySignature(req: Request, res: Response) {
 
     if (!nonceData) {
       return res.status(401).json({ error: "Invalid or expired nonce" });
-    }
-
-    // Delete the nonce immediately (one-time use) to prevent replay attempts
-    // This happens before verification so the nonce is consumed regardless of outcome
-    try {
-      await AuthNonce.deleteOne({ _id: nonceData._id });
-    } catch (deleteErr) {
-      console.error("[Auth] Failed to delete nonce:", deleteErr);
     }
 
     const message = createSignMessage(normalizedAddress, nonce);
@@ -252,8 +244,6 @@ export async function handleUpdateMe(req: AuthenticatedRequest, res: Response) {
       socialLinks,
       isPublic,
       showStats,
-      isAgent,
-      erc8004AgentId,
     } = req.body;
 
     // Validate URL fields start with http:// or https://
@@ -285,8 +275,7 @@ export async function handleUpdateMe(req: AuthenticatedRequest, res: Response) {
     if (socialLinks !== undefined) updateData.socialLinks = socialLinks;
     if (isPublic !== undefined) updateData.isPublic = isPublic;
     if (showStats !== undefined) updateData.showStats = showStats;
-    if (isAgent !== undefined) updateData.isAgent = isAgent;
-    if (erc8004AgentId !== undefined) updateData.erc8004AgentId = erc8004AgentId;
+    // isAgent and erc8004AgentId are system-managed — not user-editable
 
     const creator = await Creator.findByIdAndUpdate(
       req.creator.id,

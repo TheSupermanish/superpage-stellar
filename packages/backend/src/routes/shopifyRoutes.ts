@@ -1,5 +1,5 @@
 import { Router, type Router as ExpressRouter } from "express";
-import { optionalAuthMiddleware } from "../api/wallet-auth.js";
+import { authMiddleware, optionalAuthMiddleware } from "../api/wallet-auth.js";
 import { handleShopifyAuth, handleShopifyCallback, handleGetInstallUrl, importShopifyProducts } from "../api/shopify-oauth.js";
 import { handleShopifyProducts } from "../api/shopify-products.js";
 import { handleProductUpdate, handleProductDelete } from "../api/shopify-webhooks.js";
@@ -49,9 +49,9 @@ router.post("/products", handleShopifyProducts);
 /**
  * @route   POST /api/shopify/sync
  * @desc    Re-sync products from Shopify (re-imports all products for a store)
- * @access  Public
+ * @access  Protected
  */
-router.post("/sync", async (req, res) => {
+router.post("/sync", authMiddleware, async (req, res) => {
   const { storeId } = req.body as { storeId?: string };
   if (!storeId) {
     return res.status(400).json({ error: "Missing storeId" });

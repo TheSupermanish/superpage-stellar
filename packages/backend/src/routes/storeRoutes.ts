@@ -36,9 +36,9 @@ router.post("/api/upload/avatar", authMiddleware, avatarUpload.single("file"), h
 /**
  * @route   POST /api/stores
  * @desc    Create a new store
- * @access  Public
+ * @access  Protected
  */
-router.post("/api/stores", handleCreateStore);
+router.post("/api/stores", authMiddleware, handleCreateStore);
 
 /**
  * @route   GET /api/stores
@@ -50,9 +50,9 @@ router.get("/api/stores", authMiddleware, listMyStores);
 /**
  * @route   POST /api/stores/:storeId/products
  * @desc    Upsert products for a store
- * @access  Public
+ * @access  Protected
  */
-router.post("/api/stores/:storeId/products", handleUpsertStoreProducts);
+router.post("/api/stores/:storeId/products", authMiddleware, handleUpsertStoreProducts);
 
 /**
  * @route   POST /api/stores/:storeId/link
@@ -71,9 +71,9 @@ router.delete("/api/stores/:storeId", authMiddleware, deleteStore);
 /**
  * @route   DELETE /api/store-products/:productId
  * @desc    Delete a store product
- * @access  Public
+ * @access  Protected
  */
-router.delete("/api/store-products/:productId", handleDeleteStoreProduct);
+router.delete("/api/store-products/:productId", authMiddleware, handleDeleteStoreProduct);
 
 // ============================================================
 // STORE API (Public) - x402 routes
