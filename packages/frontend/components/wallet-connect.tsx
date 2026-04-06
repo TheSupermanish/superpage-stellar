@@ -20,7 +20,7 @@ interface WalletConnectProps {
 
 const btnClass = (compact?: boolean) =>
   compact
-    ? "shimmer-btn px-5 py-2 rounded-full text-sm font-bold text-white transition-all flex items-center gap-2"
+    ? "shimmer-btn px-6 py-3 rounded-full text-sm font-bold text-white transition-all flex items-center gap-2"
     : "shimmer-btn px-8 py-4 rounded-full text-lg font-bold text-white transition-all flex items-center gap-2";
 
 export function WalletConnect({ compact }: WalletConnectProps = {}) {

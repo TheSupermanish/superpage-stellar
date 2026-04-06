@@ -58,7 +58,7 @@ export function PublicNavbar() {
         >
           <div className="flex items-center justify-between h-16">
             {/* Logo + Wordmark */}
-            <Link href="/" className="flex items-center gap-2.5 group">
+            <Link href="/" className="flex items-center gap-2.5 group py-2">
               <Image src="/logo.png" alt="SuperPage" width={32} height={32} className="h-8 w-auto" />
               <span className="text-lg font-bold tracking-tight">
                 Super<span className="text-primary">Page</span>
@@ -72,7 +72,7 @@ export function PublicNavbar() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "text-sm font-medium transition-colors",
+                    "text-sm font-medium transition-colors py-3 px-1",
                     pathname === link.href
                       ? "text-primary font-bold"
                       : "text-muted-foreground hover:text-foreground"
