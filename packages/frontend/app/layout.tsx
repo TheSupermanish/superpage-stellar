@@ -21,7 +21,24 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "SuperPage - Monetize Anything with Crypto on Base",
-  description: "Paywall your APIs, files, articles, and stores with USDC on Base. AI-agent ready payments powered by HTTP 402.",
+  description:
+    "Paywall your APIs, files, articles, and stores with USDC on Base. AI-agent ready payments powered by HTTP 402.",
+  metadataBase: new URL("https://superpa.ge"),
+  robots: { index: true, follow: true },
+  openGraph: {
+    type: "website",
+    url: "https://superpa.ge",
+    title: "SuperPage - Monetize Anything with Crypto on Base",
+    description:
+      "Paywall your APIs, files, articles, and stores with USDC on Base. AI-agent ready payments powered by HTTP 402.",
+    siteName: "SuperPage",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SuperPage - Monetize Anything with Crypto on Base",
+    description:
+      "Paywall your APIs, files, articles, and stores with USDC on Base. AI-agent ready payments powered by HTTP 402.",
+  },
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -29,6 +46,7 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -42,6 +60,21 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
           rel="stylesheet"
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "SuperPage",
+              url: "https://superpa.ge",
+              logo: "https://superpa.ge/logo.png",
+              description:
+                "Paywall your APIs, files, articles, and stores with USDC on Base. AI-agent ready payments powered by HTTP 402.",
+              sameAs: [],
+            }),
+          }}
         />
       </head>
       <body
