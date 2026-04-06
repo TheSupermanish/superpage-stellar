@@ -25,7 +25,11 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased overflow-x-hidden">
-      <PublicNavbar />
+      <header>
+        <PublicNavbar />
+      </header>
+
+      <main>
 
       {/* ============================================
           HERO SECTION
@@ -460,6 +464,8 @@ if (response.status === 402) {
           </div>
         </div>
       </section>
+
+      </main>
 
       {/* ============================================
           FOOTER
