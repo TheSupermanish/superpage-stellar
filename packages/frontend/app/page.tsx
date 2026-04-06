@@ -480,7 +480,7 @@ if (response.status === 402) {
               </div>
             </div>
             <div className="space-y-5">
-              <h6 className="font-bold text-foreground">Platform</h6>
+              <h4 className="font-bold text-foreground">Platform</h4>
               <ul className="space-y-3 text-muted-foreground font-medium">
                 <li><Link href="/dashboard" className="hover:text-primary transition-colors">Dashboard</Link></li>
                 <li><Link href="/explore" className="hover:text-primary transition-colors">Explore</Link></li>
@@ -489,7 +489,7 @@ if (response.status === 402) {
               </ul>
             </div>
             <div className="space-y-5">
-              <h6 className="font-bold text-foreground">Resources</h6>
+              <h4 className="font-bold text-foreground">Resources</h4>
               <ul className="space-y-3 text-muted-foreground font-medium">
                 <li><Link href="/docs/getting-started" className="hover:text-primary transition-colors">Getting Started</Link></li>
                 <li><Link href="/faucet" className="hover:text-primary transition-colors">Faucet</Link></li>
