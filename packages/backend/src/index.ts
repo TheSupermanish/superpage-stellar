@@ -22,6 +22,11 @@ import exploreRoutes from "./routes/exploreRoutes.js";
 import resourceRoutes from "./routes/resourceRoutes.js";
 import creatorRoutes from "./routes/creatorRoutes.js";
 import storeRoutes from "./routes/storeRoutes.js";
+import {
+  handleRegisterIdentity,
+  handleLookupIdentity,
+  handleUpdateReputation,
+} from "./api/stellar-identity-api.js";
 
 // Error handling
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -118,6 +123,11 @@ app.use("/", storeRoutes);
 
 // Orders & checkout (mixed /api/* and /x402/* paths, mounted at root)
 app.use("/", orderRoutes);
+
+// Stellar Agent Identity (ERC-8004 equivalent)
+app.post("/api/stellar/identity/register", handleRegisterIdentity);
+app.get("/api/stellar/identity/:publicKey", handleLookupIdentity);
+app.post("/api/stellar/identity/reputation", handleUpdateReputation);
 
 // x402 gateway
 app.use("/x402", x402Routes);

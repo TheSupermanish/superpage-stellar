@@ -37,3 +37,6 @@ agent_log.json
 
 # Claude local settings (may contain keys in allowlists)
 .claude/settings.local.json
+
+# Stellar agent keypair (auto-generated)
+.stellar-agent-key

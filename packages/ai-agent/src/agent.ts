@@ -13,6 +13,7 @@ import { StellarWallet } from "./stellar-wallet.js";
 import type { IWallet } from "./wallet-interface.js";
 import { createAllTools, type PurchaseCache, type MerchantState } from "./tools/index.js";
 import { initMppClient } from "./mpp-client.js";
+import { autoOnboard } from "./stellar-onboard.js";
 import * as ui from "./ui.js";
 
 async function getModel(config: AgentConfig) {
@@ -125,6 +126,16 @@ export async function createAgent(
   config: AgentConfig
 ): Promise<AgentContext> {
   const client = new A2AClient(config.merchantUrl);
+
+  // Auto-onboard: create a sponsored Stellar account if needed
+  if (config.chainType === "stellar") {
+    const { secretKey, publicKey, isNew } = await autoOnboard(config.stellarSecretKey);
+    if (isNew || !config.stellarSecretKey) {
+      config.stellarSecretKey = secretKey;
+      console.log(`[Agent] Stellar wallet ready: ${publicKey}`);
+    }
+  }
+
   const wallet: IWallet = config.chainType === "stellar"
     ? new StellarWallet(config)
     : new Wallet(config);
