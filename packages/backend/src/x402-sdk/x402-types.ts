@@ -13,8 +13,8 @@ export type PaymentScheme = z.infer<typeof PaymentSchemeSchema>;
 export const NetworkSchema = z.enum(["mainnet-beta", "devnet", "testnet"]);
 export type Network = z.infer<typeof NetworkSchema>;
 
-// Token types supported on Solana
-export const TokenTypeSchema = z.enum(["SOL", "USDC", "USDT"]);
+// Token types supported across chains
+export const TokenTypeSchema = z.enum(["SOL", "USDC", "USDT", "ETH", "XLM", "DAI", "CRO", "MNT", "sFUEL", "FLOW"]);
 export type TokenType = z.infer<typeof TokenTypeSchema>;
 
 /**

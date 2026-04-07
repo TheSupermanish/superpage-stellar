@@ -27,7 +27,7 @@ export type PaymentRequirements = {
   network: string;
   chainId: number;
   amount: string;
-  token: "ETH" | "USDC" | "USDT" | "DAI" | "CRO" | "MNT" | "sFUEL" | "FLOW";
+  token: "ETH" | "USDC" | "USDT" | "DAI" | "CRO" | "MNT" | "sFUEL" | "FLOW" | "XLM";
   recipient: string;
   memo?: string;
   deadline?: number;

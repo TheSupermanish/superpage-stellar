@@ -1,6 +1,6 @@
 import { x402Config } from "./x402-config";
 import { Amounts } from "../types";
-import { isNativeToken, isValidNetwork, getChainId, DEFAULT_NETWORK, SPAY_SCHEME } from "../config/chain-config";
+import { isNativeToken, isValidNetwork, isStellarNetwork, getChainId, getChainMetadata, DEFAULT_NETWORK, SPAY_SCHEME } from "../config/chain-config";
 import crypto from "crypto";
 
 /**
@@ -17,6 +17,30 @@ export function createPaymentRequirements(
   const selectedNetwork = network || x402Config.network;
   const selectedAsset = asset || "USDC";
   
+  const isStellar = isValidNetwork(selectedNetwork) && isStellarNetwork(selectedNetwork);
+
+  // Stellar uses 7 decimals for all tokens
+  if (isStellar) {
+    const stellarBaseAmount = Math.floor(usdAmount * 1e7).toString();
+    const chainMeta = getChainMetadata(selectedNetwork as any);
+    const req: Record<string, any> = {
+      scheme: SPAY_SCHEME,
+      network: selectedNetwork,
+      chainId: 0,
+      token: selectedAsset,
+      amount: stellarBaseAmount,
+      recipient: x402Config.recipientAddress,
+      expiresAt: expiresAt.toISOString(),
+      chainType: "stellar",
+      networkPassphrase: chainMeta.networkPassphrase,
+      assetCode: selectedAsset,
+      assetIssuer: chainMeta.assetIssuer,
+      horizonUrl: chainMeta.rpcUrl,
+      metadata: { orderIntentId, amounts },
+    };
+    return [req];
+  }
+
   // For native tokens - use 18 decimals
   if (isNativeToken(selectedAsset as any)) {
     const amountInWei = Math.floor(usdAmount * 1e18).toString();
@@ -37,7 +61,7 @@ export function createPaymentRequirements(
       },
     ];
   }
-  
+
   // USDC/stablecoins - 6 decimals
   const usdcBaseAmount = Math.floor(usdAmount * 1_000_000).toString();
   const chainId = isValidNetwork(selectedNetwork) ? getChainId(selectedNetwork as any) : 0;

@@ -32,11 +32,14 @@ export type NetworkId =
   | "mantle-sepolia"
   | "cronos" | "cronos-testnet"
   | "bite-v2-sandbox"
-  | "flow" | "flow-testnet";
+  | "flow" | "flow-testnet"
+  | "stellar" | "stellar-testnet";
 
-export type TokenSymbol = "ETH" | "USDC" | "USDT" | "DAI" | "CRO" | "MNT" | "sFUEL" | "FLOW";
+export type ChainType = "evm" | "stellar";
 
-export type NativeTokenSymbol = "ETH" | "CRO" | "MNT" | "sFUEL" | "FLOW";
+export type TokenSymbol = "ETH" | "USDC" | "USDT" | "DAI" | "CRO" | "MNT" | "sFUEL" | "FLOW" | "XLM";
+
+export type NativeTokenSymbol = "ETH" | "CRO" | "MNT" | "sFUEL" | "FLOW" | "XLM";
 
 interface TokenConfig {
   address: string;
@@ -56,6 +59,12 @@ interface ChainMetadata {
   defaultPaymentToken: string;
   displayCurrency?: string;
   isTestnet: boolean;
+  /** Discriminator for chain family */
+  chainType?: ChainType;
+  /** Stellar network passphrase (only for Stellar chains) */
+  networkPassphrase?: string;
+  /** Stellar asset issuer for tokens (only for Stellar chains) */
+  assetIssuer?: string;
 }
 
 // Export the interface for use in other files
@@ -74,6 +83,7 @@ export const TOKEN_DECIMALS: Record<string, number> = {
   MNT: 18,
   sFUEL: 18,
   FLOW: 18,
+  XLM: 7,
 };
 
 // ============================================================
@@ -289,6 +299,38 @@ export const CHAIN_REGISTRY: Record<NetworkId, ChainMetadata> = {
     displayCurrency: "USDC",
     isTestnet: true,
   },
+  // Stellar Mainnet
+  stellar: {
+    chainId: 0, // Stellar uses network passphrase, not numeric chain IDs
+    name: "Stellar Mainnet",
+    rpcUrl: "https://horizon.stellar.org",
+    explorerUrl: "https://stellar.expert/explorer/public",
+    nativeToken: { symbol: "XLM", decimals: 7 },
+    tokens: {
+      USDC: { address: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN", decimals: 7 },
+    },
+    defaultPaymentToken: "USDC",
+    isTestnet: false,
+    chainType: "stellar",
+    networkPassphrase: "Public Global Stellar Network ; September 2015",
+    assetIssuer: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+  },
+  // Stellar Testnet
+  "stellar-testnet": {
+    chainId: 0,
+    name: "Stellar Testnet",
+    rpcUrl: "https://horizon-testnet.stellar.org",
+    explorerUrl: "https://stellar.expert/explorer/testnet",
+    nativeToken: { symbol: "XLM", decimals: 7 },
+    tokens: {
+      USDC: { address: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5", decimals: 7 },
+    },
+    defaultPaymentToken: "USDC",
+    isTestnet: true,
+    chainType: "stellar",
+    networkPassphrase: "Test SDF Network ; September 2015",
+    assetIssuer: "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+  },
 };
 
 // ============================================================
@@ -324,7 +366,22 @@ export function getChainId(networkId: NetworkId): number {
  * Check if token is a native token (not an ERC-20)
  */
 export function isNativeToken(symbol: TokenSymbol): symbol is NativeTokenSymbol {
-  return ["ETH", "CRO", "MNT", "sFUEL", "FLOW"].includes(symbol);
+  return ["ETH", "CRO", "MNT", "sFUEL", "FLOW", "XLM"].includes(symbol);
+}
+
+/**
+ * Check if a network is a Stellar chain (non-EVM)
+ */
+export function isStellarNetwork(networkId: string): boolean {
+  if (!isValidNetwork(networkId)) return false;
+  return CHAIN_REGISTRY[networkId].chainType === "stellar";
+}
+
+/**
+ * Get the chain type for a network
+ */
+export function getChainType(networkId: NetworkId): ChainType {
+  return CHAIN_REGISTRY[networkId].chainType || "evm";
 }
 
 /**
@@ -409,6 +466,9 @@ export interface ChainConfig {
   rpcUrl: string;
   explorerUrl: string;
   isTestnet: boolean;
+  chainType: ChainType;
+  networkPassphrase?: string;
+  assetIssuer?: string;
 }
 
 /**
@@ -452,6 +512,9 @@ export function getChainConfig(): ChainConfig {
     rpcUrl: chainMeta.rpcUrl,
     explorerUrl: chainMeta.explorerUrl,
     isTestnet: chainMeta.isTestnet,
+    chainType: chainMeta.chainType || "evm",
+    networkPassphrase: chainMeta.networkPassphrase,
+    assetIssuer: chainMeta.assetIssuer,
   };
 }
 

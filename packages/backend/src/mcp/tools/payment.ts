@@ -19,6 +19,7 @@ import {
   getChainConfig,
   getChainMetadata,
   isValidNetwork,
+  isStellarNetwork,
   getTokenAddress,
   getAvailableTokens,
   isNativeToken,
@@ -58,16 +59,14 @@ const ERC20_ABI = [
 
 const makePaymentTool = defineTool({
   name: "make_payment",
-  description: "Make a payment on EVM chains. Supports native tokens and ERC20 tokens (USDC, USDT, etc).",
+  description: "Make a payment on EVM chains or Stellar. Supports native tokens, ERC20 tokens (USDC, USDT), and Stellar USDC/XLM.",
   inputSchema: z.object({
-    recipientAddress: z.string().describe("EVM wallet address to send tokens to (0x...)"),
-    amount: z.string().describe("Amount in base units (e.g., 10000 for 0.01 USDC with 6 decimals)"),
-    network: z.string().optional().describe("Network ID (e.g. base-sepolia, bite-v2-sandbox, base, mainnet). Defaults to configured network."),
-    token: z.string().optional().describe("Token symbol: USDC, ETH, etc. Defaults to configured currency."),
+    recipientAddress: z.string().describe("Wallet address to send tokens to (0x... for EVM, G... for Stellar)"),
+    amount: z.string().describe("Amount in base units (e.g., 10000 for 0.01 USDC with 6 decimals on EVM, 7 decimals on Stellar)"),
+    network: z.string().optional().describe("Network ID (e.g. base-sepolia, stellar-testnet). Defaults to configured network."),
+    token: z.string().optional().describe("Token symbol: USDC, ETH, XLM, etc. Defaults to configured currency."),
   }),
   handler: async ({ recipientAddress, amount, network: networkArg, token: tokenArg }) => {
-    console.log(`[make_payment] 💳 Starting EVM payment...`);
-
     const chainConfig = getChainConfig();
     const network = networkArg || chainConfig.network;
     const token = tokenArg || chainConfig.currency;
@@ -79,25 +78,139 @@ const makePaymentTool = defineTool({
       return { success: false, error: "Missing required parameter: amount" };
     }
 
+    if (!isValidNetwork(network)) {
+      return { success: false, error: `Unsupported network: ${network}. Supported: ${getSupportedNetworks().join(", ")}` };
+    }
+
+    // ── Stellar payment ──
+    if (isStellarNetwork(network)) {
+      return handleStellarPayment(recipientAddress, amount, network as NetworkId, token);
+    }
+
+    // ── EVM payment ──
+    return handleEVMPayment(recipientAddress, amount, network as NetworkId, token);
+  },
+});
+
+async function handleStellarPayment(
+  recipientAddress: string,
+  amount: string,
+  network: NetworkId,
+  token: string
+) {
+  console.log(`[make_payment] Starting Stellar payment...`);
+
+  const stellarSecretKey = process.env.STELLAR_SECRET_KEY;
+  if (!stellarSecretKey) {
+    return { success: false, error: "STELLAR_SECRET_KEY not configured on server" };
+  }
+
+  try {
+    const chainMeta = getChainMetadata(network);
+    const { Keypair, Networks, Asset, TransactionBuilder, Operation, Horizon } = await import("@stellar/stellar-sdk");
+
+    const keypair = Keypair.fromSecret(stellarSecretKey);
+    const server = new Horizon.Server(chainMeta.rpcUrl);
+    const networkPassphrase = network === "stellar" ? Networks.PUBLIC : Networks.TESTNET;
+
+    console.log(`[make_payment] Network: ${network}`);
+    console.log(`[make_payment] Wallet: ${keypair.publicKey()}`);
+    console.log(`[make_payment] Recipient: ${recipientAddress}`);
+    console.log(`[make_payment] Amount: ${amount} base units`);
+
+    // Convert base units (7 decimals) to Stellar amount string
+    const stellarAmount = (Number(amount) / 1e7).toFixed(7);
+
+    // Determine asset
+    let asset: any;
+    if (token === "XLM" || token === "NATIVE") {
+      asset = Asset.native();
+    } else {
+      const issuer = chainMeta.assetIssuer || chainMeta.tokens?.USDC?.address;
+      if (!issuer) {
+        return { success: false, error: `No issuer found for ${token} on ${network}` };
+      }
+      asset = new Asset(token, issuer);
+    }
+
+    const sourceAccount = await server.loadAccount(keypair.publicKey());
+
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: "100",
+      networkPassphrase,
+    })
+      .addOperation(
+        Operation.payment({
+          destination: recipientAddress,
+          asset,
+          amount: stellarAmount,
+        })
+      )
+      .setTimeout(60)
+      .build();
+
+    transaction.sign(keypair);
+    const result = await server.submitTransaction(transaction);
+    const txHash = result.hash;
+
+    console.log(`[make_payment] Transaction sent: ${txHash}`);
+
+    const paymentProof = {
+      transactionHash: txHash,
+      network,
+      chainId: 0,
+      timestamp: Date.now(),
+    };
+
+    return {
+      success: true,
+      paymentProof,
+      details: {
+        transactionHash: txHash,
+        recipientAddress,
+        amount,
+        amountFormatted: `${stellarAmount} ${token}`,
+        network,
+        chainId: 0,
+        token,
+        confirmedAt: new Date().toISOString(),
+        explorerUrl: `${chainMeta.explorerUrl}/tx/${txHash}`,
+      },
+      message: `Stellar payment of ${stellarAmount} ${token} sent successfully.`,
+    };
+  } catch (err: any) {
+    console.error(`[make_payment] Stellar payment failed:`, err.message);
+    return {
+      success: false,
+      error: err.message,
+      hint: "Check Stellar wallet balance and trustlines. Ensure account is funded.",
+    };
+  }
+}
+
+async function handleEVMPayment(
+  recipientAddress: string,
+  amount: string,
+  network: NetworkId,
+  token: string
+) {
+    console.log(`[make_payment] Starting EVM payment...`);
+
     const privateKey = process.env.WALLET_PRIVATE_KEY || process.env.ETH_PRIVATE_KEY;
     if (!privateKey) {
       return { success: false, error: "WALLET_PRIVATE_KEY not configured on server" };
     }
 
     try {
-      if (!isValidNetwork(network)) {
-        return { success: false, error: `Unsupported network: ${network}. Supported: ${getSupportedNetworks().join(", ")}` };
-      }
+      const chainMeta = getChainMetadata(network);
 
-      const chainMeta = getChainMetadata(network as NetworkId);
-
-      console.log(`[make_payment] 🌐 Network: ${network} (Chain ID: ${chainMeta.chainId})`);
-      console.log(`[make_payment] 💰 Token: ${token}`);
-      console.log(`[make_payment] 📍 Recipient: ${recipientAddress}`);
-      console.log(`[make_payment] 💵 Amount: ${amount} base units`);
+      console.log(`[make_payment] Network: ${network} (Chain ID: ${chainMeta.chainId})`);
+      console.log(`[make_payment] Token: ${token}`);
+      console.log(`[make_payment] Recipient: ${recipientAddress}`);
+      console.log(`[make_payment] Amount: ${amount} base units`);
 
       const account = privateKeyToAccount(privateKey as `0x${string}`);
-      console.log(`[make_payment] 🔑 Wallet: ${account.address}`);
+      console.log(`[make_payment] Wallet: ${account.address}`);
 
       const publicClient = createPublicClient({
         transport: http(chainMeta.rpcUrl),
@@ -125,7 +238,7 @@ const makePaymentTool = defineTool({
 
       // Native token transfer
       if (isNativeToken(token as TokenSymbol) || token === "NATIVE") {
-        console.log(`[make_payment] 📤 Sending native token (${chainMeta.nativeToken.symbol})...`);
+        console.log(`[make_payment] Sending native token (${chainMeta.nativeToken.symbol})...`);
 
         txHash = await walletClient.sendTransaction({
           to: recipientAddress as `0x${string}`,
@@ -133,16 +246,16 @@ const makePaymentTool = defineTool({
         });
       } else {
         // ERC20 token transfer
-        const tokenAddress = getTokenAddress(network as NetworkId, token as TokenSymbol);
+        const tokenAddress = getTokenAddress(network, token as TokenSymbol);
         if (!tokenAddress) {
-          return { 
-            success: false, 
-            error: `Token ${token} not available on ${network}. Available: ${getAvailableTokens(network as NetworkId).join(", ")}` 
+          return {
+            success: false,
+            error: `Token ${token} not available on ${network}. Available: ${getAvailableTokens(network).join(", ")}`
           };
         }
 
-        console.log(`[make_payment] 📤 Sending ERC20 token...`);
-        console.log(`[make_payment] 📜 Token contract: ${tokenAddress}`);
+        console.log(`[make_payment] Sending ERC20 token...`);
+        console.log(`[make_payment] Token contract: ${tokenAddress}`);
 
         const data = encodeFunctionData({
           abi: ERC20_ABI,
@@ -157,10 +270,10 @@ const makePaymentTool = defineTool({
         });
       }
 
-      console.log(`[make_payment] ✅ Transaction sent: ${txHash}`);
+      console.log(`[make_payment] Transaction sent: ${txHash}`);
 
       // Wait for confirmation
-      console.log(`[make_payment] ⏳ Waiting for confirmation...`);
+      console.log(`[make_payment] Waiting for confirmation...`);
       const receipt = await publicClient.waitForTransactionReceipt({
         hash: txHash,
         confirmations: 1,
@@ -174,7 +287,7 @@ const makePaymentTool = defineTool({
         };
       }
 
-      console.log(`[make_payment] ✅ Confirmed in block ${receipt.blockNumber}`);
+      console.log(`[make_payment] Confirmed in block ${receipt.blockNumber}`);
 
       // Create payment proof
       const paymentProof = {
@@ -205,28 +318,88 @@ const makePaymentTool = defineTool({
         message: `Payment of ${amountFormatted} ${token} sent successfully. Use paymentProof to finalize checkout.`,
       };
     } catch (err: any) {
-      console.error(`[make_payment] ❌ Payment failed:`, err.message);
+      console.error(`[make_payment] Payment failed:`, err.message);
       return {
         success: false,
         error: err.message,
         hint: "Check wallet balance and gas. Make sure network RPC is accessible.",
       };
     }
-  },
-});
+}
 
 const getBalanceTool = defineTool({
   name: "get_balance",
-  description: "Check wallet balance for native tokens or ERC20 tokens (USDC, etc)",
+  description: "Check wallet balance for native tokens or ERC20/Stellar tokens (USDC, etc)",
   inputSchema: z.object({
     address: z.string().optional().describe("Wallet address to check. Defaults to configured wallet."),
-    token: z.string().optional().describe("Token symbol: USDC, ETH, NATIVE, etc. Defaults to USDC."),
+    token: z.string().optional().describe("Token symbol: USDC, ETH, XLM, NATIVE, etc. Defaults to USDC."),
     network: z.string().optional().describe("Network to check balance on. Defaults to configured network."),
   }),
   handler: async ({ address, token = "USDC", network: networkArg }) => {
     const chainConfig = getChainConfig();
     const network = networkArg || chainConfig.network;
 
+    if (!isValidNetwork(network)) {
+      return { success: false, error: `Unsupported network: ${network}` };
+    }
+
+    // ── Stellar balance ──
+    if (isStellarNetwork(network)) {
+      try {
+        const chainMeta = getChainMetadata(network as NetworkId);
+        const { Keypair, Horizon } = await import("@stellar/stellar-sdk");
+
+        // Determine wallet address
+        let walletAddress = address;
+        if (!walletAddress) {
+          const secretKey = process.env.STELLAR_SECRET_KEY;
+          if (secretKey) {
+            walletAddress = Keypair.fromSecret(secretKey).publicKey();
+          }
+        }
+        if (!walletAddress) {
+          return { success: false, error: "No wallet address provided or configured" };
+        }
+
+        const server = new Horizon.Server(chainMeta.rpcUrl);
+        const account = await server.loadAccount(walletAddress);
+
+        if (token === "XLM" || token === "NATIVE") {
+          const xlmBal = account.balances.find((b: any) => b.asset_type === "native");
+          return {
+            success: true,
+            address: walletAddress,
+            token: "XLM",
+            balance: xlmBal?.balance || "0",
+            balanceFormatted: `${xlmBal?.balance || "0"} XLM`,
+            network,
+          };
+        }
+
+        // Find specific asset balance
+        const issuer = chainMeta.assetIssuer || chainMeta.tokens?.USDC?.address;
+        const assetBal = account.balances.find(
+          (b: any) => b.asset_code === token && (issuer ? b.asset_issuer === issuer : true)
+        );
+
+        return {
+          success: true,
+          address: walletAddress,
+          token,
+          balance: assetBal?.balance || "0",
+          balanceFormatted: `${assetBal?.balance || "0"} ${token}`,
+          network,
+          hasTrustline: !!assetBal,
+        };
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          return { success: true, address: address || "unknown", token, balance: "0", balanceFormatted: `0 ${token}`, network, error: "Account not found/funded" };
+        }
+        return { success: false, error: err.message };
+      }
+    }
+
+    // ── EVM balance ──
     const privateKey = process.env.WALLET_PRIVATE_KEY || process.env.ETH_PRIVATE_KEY;
     const walletAddress = address || (privateKey ? privateKeyToAccount(privateKey as `0x${string}`).address : null);
 
@@ -235,10 +408,6 @@ const getBalanceTool = defineTool({
     }
 
     try {
-      if (!isValidNetwork(network)) {
-        return { success: false, error: `Unsupported network: ${network}` };
-      }
-
       const chainMeta = getChainMetadata(network as NetworkId);
 
       const publicClient = createPublicClient({
@@ -265,8 +434,8 @@ const getBalanceTool = defineTool({
       // ERC20 balance
       const tokenAddress = getTokenAddress(network as NetworkId, token as TokenSymbol);
       if (!tokenAddress) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: `Token ${token} not available on ${network}`,
           availableTokens: getAvailableTokens(network as NetworkId),
         };
@@ -314,8 +483,17 @@ const getConfigTool = defineTool({
       chainMeta = null;
     }
 
-    const privateKey = process.env.WALLET_PRIVATE_KEY || process.env.ETH_PRIVATE_KEY;
-    const walletAddress = privateKey ? privateKeyToAccount(privateKey as `0x${string}`).address : null;
+    let walletAddress: string | null = null;
+    if (isStellarNetwork(chainConfig.network)) {
+      const stellarKey = process.env.STELLAR_SECRET_KEY;
+      if (stellarKey) {
+        const { Keypair } = await import("@stellar/stellar-sdk");
+        walletAddress = Keypair.fromSecret(stellarKey).publicKey();
+      }
+    } else {
+      const privateKey = process.env.WALLET_PRIVATE_KEY || process.env.ETH_PRIVATE_KEY;
+      walletAddress = privateKey ? privateKeyToAccount(privateKey as `0x${string}`).address : null;
+    }
     const recipientAddress = process.env.X402_RECIPIENT_ADDRESS || process.env.ETH_RECIPIENT_ADDRESS;
 
     return {

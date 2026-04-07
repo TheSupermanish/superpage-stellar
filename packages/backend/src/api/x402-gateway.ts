@@ -18,9 +18,12 @@ import {
   getCurrency,
   getTokenDecimals,
   getChainId,
-  isValidNetwork,
+  isStellarNetwork,
+  getChainMetadata,
+  getChainConfig,
   SPAY_SCHEME,
 } from "../config/chain-config.js";
+import { verifyStellarPayment } from "../utils/stellar-verifier.js";
 import mongoose from "mongoose";
 
 const X402_RECIPIENT = process.env.X402_RECIPIENT_ADDRESS || process.env.ETH_RECIPIENT_ADDRESS;
@@ -87,19 +90,28 @@ export async function handleResourceAccess(req: Request, res: Response) {
     const currency = getCurrency();
     const tokenDecimals = getTokenDecimals();
 
-    // For native tokens, use the price directly as the native amount
-    // For USDC, convert from dollars to micro-units
+    // Convert price to base units using the correct decimals for the chain/token
+    // Stellar: 7 decimals for all tokens, EVM USDC: 6 decimals, EVM native: 18 decimals
     const amountMicroUsdc = currency === "USDC"
       ? BigInt(Math.floor(priceUsdc * 10 ** tokenDecimals)).toString()
       : BigInt(Math.floor(priceUsdc * 10 ** 18)).toString(); // Native tokens use 18 decimals
 
     // Get payment recipient (creator's wallet or platform default)
     // Handle both populated and non-populated creatorId
+    const networkNow = getNetwork();
+    const isStellarNow = isStellarNetwork(networkNow);
     let recipientAddress: string | undefined;
     if (resource.creatorId) {
       // Check if it's a populated object or just an ID
       if (typeof resource.creatorId === 'object' && 'walletAddress' in resource.creatorId) {
-        recipientAddress = resource.creatorId.walletAddress;
+        const creatorWallet = resource.creatorId.walletAddress;
+        // On Stellar, only use the creator's wallet if it's a Stellar address (G...)
+        // EVM addresses (0x...) can't receive Stellar payments
+        if (isStellarNow && creatorWallet?.startsWith("0x")) {
+          recipientAddress = undefined; // Fall through to platform default
+        } else {
+          recipientAddress = creatorWallet;
+        }
       }
     }
 
@@ -123,14 +135,15 @@ export async function handleResourceAccess(req: Request, res: Response) {
     // ============================================================
     if (!xPaymentHeader) {
       const network = getNetwork();
-      console.log(`[x402-gateway] No payment header - returning 402 (${priceUsdc} ${currency})`);
+      const chainConfig = getChainConfig();
+      const isStellar = isStellarNetwork(network);
+      console.log(`[x402-gateway] No payment header - returning 402 (${priceUsdc} ${currency}, ${isStellar ? "stellar" : "evm"})`);
 
       // Get chain ID from the chain registry
       const chainId = getChainId(network);
 
       // Return payment requirements in SDK-compatible format
-      // The SDK's parsePaymentRequirements expects the body to match PaymentRequirementsSchema
-      const paymentRequirements = {
+      const paymentRequirements: Record<string, any> = {
         scheme: SPAY_SCHEME as any,
         network: network,
         chainId: chainId,
@@ -141,10 +154,19 @@ export async function handleResourceAccess(req: Request, res: Response) {
         memo: resource.description || `Access to ${resource.name}`,
       };
 
+      // Add Stellar-specific fields
+      if (isStellar) {
+        paymentRequirements.chainType = "stellar";
+        paymentRequirements.networkPassphrase = chainConfig.networkPassphrase;
+        paymentRequirements.assetCode = currency;
+        paymentRequirements.assetIssuer = chainConfig.assetIssuer;
+        paymentRequirements.horizonUrl = chainConfig.rpcUrl;
+      }
+
       return res.status(402).json({
         // SDK-compatible payment requirements (top-level for SDK parsing)
         ...paymentRequirements,
-        
+
         // Additional metadata
         x402Version: "1.0",
         resourceId: resource._id.toString(),
@@ -153,7 +175,7 @@ export async function handleResourceAccess(req: Request, res: Response) {
         description: resource.description || `Access to ${resource.name}`,
         price: priceUsdc,
         priceFormatted: `$${priceUsdc.toFixed(2)} ${currency}`,
-        
+
         // Also include in accepts array for backward compatibility
         accepts: [paymentRequirements],
       });
@@ -164,7 +186,9 @@ export async function handleResourceAccess(req: Request, res: Response) {
     // ============================================================
     console.log(`[x402-gateway] Payment header present - verifying`);
 
-    const x402Server = await initializeX402Server();
+    // Only initialize EVM x402 server when needed (Stellar uses its own verifier)
+    const networkForVerification = getNetwork();
+    const x402Server = isStellarNetwork(networkForVerification) ? null : await initializeX402Server();
 
     // Parse payment header
     let paymentData: any;
@@ -192,64 +216,84 @@ export async function handleResourceAccess(req: Request, res: Response) {
 
     // Verify payment
     const network = getNetwork();
-    
-    // All networks in the registry are EVM networks
-    // isValidNetwork returns true for all supported EVM chains
-    const isEVMNetwork = isValidNetwork(network);
+    const isStellar = isStellarNetwork(network);
+    const txSignature = paymentData.transactionHash || paymentData.txHash || paymentData.signature || paymentData.payload?.signature;
 
-    const paymentProof = isEVMNetwork ? {
-      transactionHash: paymentData.transactionHash || paymentData.signature,
-      network: paymentData.network,
-      chainId: paymentData.chainId || paymentData.chain_id,
-      timestamp: paymentData.timestamp || Date.now(),
-    } : {
-      signature: paymentData.signature,
-      network: paymentData.network,
-      timestamp: paymentData.timestamp || Date.now(),
-    };
+    console.log(`[x402-gateway] Verifying payment (amount: ${amountMicroUsdc}, network: ${network}, type: ${isStellar ? "stellar" : "evm"})`);
 
-    const chainId = getChainId(network);
-    
-    const paymentRequirements = {
-      network: network,
-      chainId: chainId,
-      recipient: recipientAddress,
-      amount: amountMicroUsdc,
-      token: currency as any,
-    };
-
-    console.log(`[x402-gateway] Verifying payment (amount: ${amountMicroUsdc}, network: ${network})`);
-
-    // Verify with retries — fast chains like SKALE may need a moment for RPC sync
     let verified = false;
-    const maxRetries = 3;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      verified = await x402Server.verifyPayment(paymentProof, paymentRequirements);
-      if (verified) break;
-      if (attempt < maxRetries) {
-        console.log(`[x402-gateway] Verification attempt ${attempt} failed, retrying in 2s...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
+    let payerWallet: string | undefined;
+
+    if (isStellar) {
+      // ── Stellar verification ──
+      const chainMeta = getChainMetadata(network);
+      const horizonUrl = chainMeta.rpcUrl;
+      // Convert base units to Stellar decimal format (7 decimals)
+      const stellarAmount = (Number(amountMicroUsdc) / 1e7).toFixed(7);
+      const assetCode = currency === "XLM" ? "native" : String(currency);
+
+      const result = await verifyStellarPayment(
+        txSignature,
+        recipientAddress,
+        stellarAmount,
+        assetCode,
+        horizonUrl,
+        chainMeta.assetIssuer
+      );
+
+      verified = result.verified;
+      payerWallet = result.from || undefined;
+
+      if (!verified) {
+        console.error(`[x402-gateway] Stellar verification failed: ${result.error}`);
+      }
+    } else {
+      // ── EVM verification ──
+      const paymentProof = {
+        transactionHash: paymentData.transactionHash || paymentData.signature,
+        network: paymentData.network,
+        chainId: paymentData.chainId || paymentData.chain_id,
+        timestamp: paymentData.timestamp || Date.now(),
+      };
+
+      const chainId = getChainId(network);
+
+      const paymentRequirements = {
+        network: network,
+        chainId: chainId,
+        recipient: recipientAddress,
+        amount: amountMicroUsdc,
+        token: currency as any,
+      };
+
+      // Verify with retries — fast chains like SKALE may need a moment for RPC sync
+      const maxRetries = 3;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        verified = await x402Server.verifyPayment(paymentProof, paymentRequirements);
+        if (verified) break;
+        if (attempt < maxRetries) {
+          console.log(`[x402-gateway] Verification attempt ${attempt} failed, retrying in 2s...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+
+      // Extract payer wallet from EVM receipt
+      try {
+        const receipt = await x402Server.getPublicClient().getTransactionReceipt({ hash: txSignature as `0x${string}` });
+        payerWallet = receipt.from?.toLowerCase();
+      } catch (receiptErr: any) {
+        console.warn("[x402-gateway] Could not extract wallet from tx receipt:", receiptErr.message);
       }
     }
 
     console.log("[x402-gateway] Verification result:", verified);
 
     if (!verified) {
-      console.error("[x402-gateway] Payment verification failed after retries");
+      console.error("[x402-gateway] Payment verification failed");
       return res.status(402).json({
         error: "Payment verification failed",
         details: "Payment could not be verified on-chain",
       });
-    }
-
-    // Extract wallet address from transaction receipt
-    const txSignature = paymentData.transactionHash || paymentData.txHash || paymentData.signature || paymentData.payload?.signature;
-    let payerWallet: string | undefined;
-    try {
-      const receipt = await x402Server.getPublicClient().getTransactionReceipt({ hash: txSignature as `0x${string}` });
-      payerWallet = receipt.from?.toLowerCase();
-    } catch (receiptErr: any) {
-      console.warn("[x402-gateway] Could not extract wallet from tx receipt:", receiptErr.message);
     }
 
     // Log the access — duplicate paymentSignature means tx replay, must reject
