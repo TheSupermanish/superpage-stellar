@@ -9,7 +9,7 @@
  * - MPP: server issues a 402 Challenge, client signs a Credential, server settles
  */
 
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import { Resource, AccessLog } from "../models/index.js";
 import {
   getNetwork,

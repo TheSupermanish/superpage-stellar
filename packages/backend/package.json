@@ -48,7 +48,7 @@
     "mongoose": "^9.1.2",
     "mppx": "^0.5.7",
     "multer": "^2.0.1",
-    "viem": "2.44.1",
+    "viem": "2.47.10",
     "zod": "^4.1.12"
   },
   "devDependencies": {
