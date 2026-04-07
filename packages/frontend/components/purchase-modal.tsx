@@ -13,8 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useAccount } from "wagmi";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
 import {
   useX402Payment,
   type CheckoutRequest,
@@ -22,7 +20,30 @@ import {
   type CheckoutResult,
   type PaymentStatus,
 } from "@/hooks/use-x402-payment";
-import { getCurrencyDisplay, getTxUrl } from "@/lib/chain-config";
+import { getCurrencyDisplay, getTxUrl, isStellarNetwork } from "@/lib/chain-config";
+import { useStellarWallet } from "./providers/stellar-wallet-provider";
+
+const IS_STELLAR = isStellarNetwork();
+
+// Conditional wallet hooks — wagmi hooks only available under EVM provider
+function useWalletConnection() {
+  if (IS_STELLAR) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { connected, publicKey, connect } = useStellarWallet();
+    return {
+      isConnected: connected,
+      openConnectModal: connect,
+    };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const wagmi = require("wagmi");
+  const rainbowkit = require("@rainbow-me/rainbowkit");
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const { isConnected } = wagmi.useAccount();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const { openConnectModal } = rainbowkit.useConnectModal();
+  return { isConnected, openConnectModal };
+}
 import {
   Code,
   FileText,
@@ -95,8 +116,7 @@ const STATUS_LABELS: Record<PaymentStatus, string> = {
 // ── Component ───────────────────────────────────────
 
 export function PurchaseModal({ open, onOpenChange, item }: PurchaseModalProps) {
-  const { isConnected } = useAccount();
-  const { openConnectModal } = useConnectModal();
+  const { isConnected, openConnectModal } = useWalletConnection();
   const { payForResource, payForProduct, status, error, txHash, reset } = useX402Payment();
 
   const [resourceResult, setResourceResult] = useState<ResourceResult | null>(null);

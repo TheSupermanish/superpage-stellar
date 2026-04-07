@@ -6,7 +6,8 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useEnsureNetwork } from "./use-network-switch";
 import { createPublicClient, http, parseAbi } from "viem";
 import { getDefaultChain, getDefaultChainId, CHAIN_BY_NAME } from "@/lib/chains";
-import { getNetwork, getUsdcAddress, USDC_ADDRESSES } from "@/lib/chain-config";
+import { getNetwork, getUsdcAddress, USDC_ADDRESSES, isStellarNetwork } from "@/lib/chain-config";
+import { useStellarPayment } from "./use-stellar-payment";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -170,7 +171,14 @@ function friendlyError(err: any): string {
   return err.shortMessage || err.message || "Something went wrong. Please try again.";
 }
 
-export function useX402Payment() {
+/**
+ * Universal payment hook — dispatches to Stellar or EVM based on configured network.
+ * Since NEXT_PUBLIC_X402_CHAIN is baked at build time, isStellarNetwork() is a constant
+ * and this is not actually a conditional hook call.
+ */
+export const useX402Payment = isStellarNetwork() ? useStellarPayment : useEVMPayment;
+
+function useEVMPayment() {
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);

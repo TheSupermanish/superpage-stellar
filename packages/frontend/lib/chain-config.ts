@@ -24,6 +24,9 @@ const CHAIN_DEFAULTS: Record<string, { defaultCurrency: string; displayCurrency?
   "bite-v2-sandbox": { defaultCurrency: "USDC", displayCurrency: "USDC" },
   "flow": { defaultCurrency: "USDC" },
   "flow-testnet": { defaultCurrency: "FLOW" },
+  // Stellar
+  "stellar": { defaultCurrency: "USDC" },
+  "stellar-testnet": { defaultCurrency: "USDC" },
 };
 
 // Native token symbols per chain
@@ -44,6 +47,8 @@ const NATIVE_TOKENS: Record<string, string> = {
   "bite-v2-sandbox": "sFUEL",
   "flow": "FLOW",
   "flow-testnet": "FLOW",
+  "stellar": "XLM",
+  "stellar-testnet": "XLM",
 };
 
 // Chain IDs for reference
@@ -64,6 +69,8 @@ export const CHAIN_IDS: Record<string, number> = {
   "bite-v2-sandbox": 103698795,
   "flow": 747,
   "flow-testnet": 545,
+  "stellar": 0,
+  "stellar-testnet": 0,
 };
 
 // Block explorer URLs
@@ -84,6 +91,8 @@ export const EXPLORER_URLS: Record<string, string> = {
   "bite-v2-sandbox": "https://base-sepolia-testnet-explorer.skalenodes.com:10032",
   "flow": "https://evm.flowscan.io",
   "flow-testnet": "https://evm-testnet.flowscan.io",
+  "stellar": "https://stellar.expert/explorer/public",
+  "stellar-testnet": "https://stellar.expert/explorer/testnet",
 };
 
 // USDC contract addresses per network
@@ -133,7 +142,7 @@ export function getCurrencyDisplay(): string {
   }
   
   // Show native token symbol for native currencies
-  if (currency === "ETH" || currency === "MNT" || currency === "CRO" || currency === "sFUEL" || currency === "FLOW") {
+  if (currency === "ETH" || currency === "MNT" || currency === "CRO" || currency === "sFUEL" || currency === "FLOW" || currency === "XLM") {
     return NATIVE_TOKENS[network] || currency;
   }
   
@@ -162,6 +171,13 @@ export function getNativeToken(): string {
 export function isTestnet(): boolean {
   const network = getNetwork();
   return network.includes("sepolia") || network.includes("testnet") || network.includes("amoy") || network.includes("sandbox") || network === "flow-testnet";
+}
+
+/**
+ * Check if the current network is a Stellar chain
+ */
+export function isStellarNetwork(): boolean {
+  return getNetwork().startsWith("stellar");
 }
 
 /**

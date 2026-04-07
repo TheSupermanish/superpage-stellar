@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useAuth } from "./providers/auth-provider";
+import { useStellarWallet } from "./providers/stellar-wallet-provider";
+import { isStellarNetwork } from "@/lib/chain-config";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +16,8 @@ import {
 import { Wallet, LogOut, User, Loader2, AlertCircle } from "lucide-react";
 import Image from "next/image";
 
+const IS_STELLAR = isStellarNetwork();
+
 interface WalletConnectProps {
   compact?: boolean;
 }
@@ -23,7 +27,57 @@ const btnClass = (compact?: boolean) =>
     ? "shimmer-btn px-6 py-3 rounded-full text-sm font-bold text-white transition-all flex items-center gap-2"
     : "shimmer-btn px-8 py-4 rounded-full text-lg font-bold text-white transition-all flex items-center gap-2";
 
+function StellarWalletConnect({ compact }: WalletConnectProps) {
+  const [mounted, setMounted] = useState(false);
+  const { connected, publicKey, connect, disconnect } = useStellarWallet();
+
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return <button className={btnClass(compact)}><Wallet className="h-4 w-4" /><span>Connect Wallet</span></button>;
+
+  const formatAddress = (addr: string | null) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+
+  if (!connected || !publicKey) {
+    return (
+      <button onClick={connect} className={btnClass(compact)}>
+        <Wallet className="h-4 w-4" />
+        <span>Connect Freighter</span>
+      </button>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="gap-2 border-border hover:bg-muted hover:border-border px-4 py-2 rounded-full border transition-all flex items-center">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-xs text-white font-bold">S</div>
+          <span className="hidden sm:inline font-medium font-mono text-sm">{formatAddress(publicKey)}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 bg-card border-border">
+        <div className="px-2 py-2">
+          <p className="text-xs text-muted-foreground">Stellar Wallet</p>
+          <p className="text-xs text-muted-foreground font-mono mt-0.5">{formatAddress(publicKey)}</p>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <a href="/dashboard" className="cursor-pointer">Dashboard</a>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={disconnect} className="text-red-600 cursor-pointer">
+          <LogOut className="h-4 w-4 mr-2" />
+          Disconnect
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function WalletConnect({ compact }: WalletConnectProps = {}) {
+  if (IS_STELLAR) return <StellarWalletConnect compact={compact} />;
+  return <EVMWalletConnect compact={compact} />;
+}
+
+function EVMWalletConnect({ compact }: WalletConnectProps) {
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
