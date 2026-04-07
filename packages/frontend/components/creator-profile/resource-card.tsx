@@ -3,7 +3,7 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Code, FileText, Globe, ShoppingBag, Eye } from "lucide-react";
+import { Code, FileText, Globe, ShoppingBag, Eye, Wrench } from "lucide-react";
 import { getCurrencyDisplay } from "@/lib/chain-config";
 
 interface Resource {
@@ -27,6 +27,7 @@ const resourceIcons = {
   file: FileText,
   article: Globe,
   shopify: ShoppingBag,
+  service: Wrench,
 };
 
 const resourceColors = {
@@ -34,6 +35,7 @@ const resourceColors = {
   file: "text-sp-gold bg-sp-gold/10 border-sp-gold/20",
   article: "text-sp-coral bg-sp-coral/10 border-sp-coral/20",
   shopify: "text-sp-pink bg-sp-pink/10 border-sp-pink/20",
+  service: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
 };
 
 export function ResourceCard({ resource, onAccess }: ResourceCardProps) {

@@ -49,6 +49,7 @@ import {
   FileText,
   Globe,
   ShoppingBag,
+  Wrench,
   Loader2,
   Wallet,
   CheckCircle2,
@@ -100,6 +101,7 @@ const TYPE_CONFIG: Record<string, { icon: typeof Code; color: string; label: str
   file: { icon: FileText, color: "text-sp-gold bg-sp-gold/15", label: "File" },
   article: { icon: Globe, color: "text-sp-coral bg-sp-coral/15", label: "Article" },
   shopify: { icon: ShoppingBag, color: "text-sp-pink bg-sp-pink/15", label: "Store" },
+  service: { icon: Wrench, color: "text-emerald-500 bg-emerald-500/15", label: "Service" },
 };
 
 const STATUS_LABELS: Record<PaymentStatus, string> = {

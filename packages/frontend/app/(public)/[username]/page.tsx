@@ -58,6 +58,16 @@ interface Profile {
   bio?: string;
   website?: string;
   walletAddress?: string;
+  isAgent?: boolean;
+  stellarAddress?: string;
+  stellarIdentity?: {
+    name?: string;
+    type?: string;
+    skills?: string[];
+    reputation?: number;
+    totalRatings?: number;
+    registered?: string;
+  };
   socialLinks?: {
     twitter?: string;
     github?: string;
@@ -318,6 +328,59 @@ export default function PublicProfilePage() {
             <p className="text-muted-foreground leading-relaxed max-w-md mx-auto text-base">
               {profile.bio}
             </p>
+          )}
+
+          {/* Stellar Agent Identity Badge */}
+          {(profile.isAgent || profile.stellarAddress || profile.stellarIdentity) && (
+            <div className="mt-6 w-full max-w-sm mx-auto">
+              <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center">
+                      <span className="text-sm">
+                        {profile.stellarIdentity?.type === "ai" ? "\u{1F916}" : profile.stellarIdentity?.type === "service" ? "\u{2699}\u{FE0F}" : "\u{1F464}"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">
+                        {profile.stellarIdentity?.type === "ai" ? "AI Agent" : profile.stellarIdentity?.type === "service" ? "Service" : "Creator"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Stellar Verified</p>
+                    </div>
+                  </div>
+                  {profile.stellarIdentity?.reputation !== undefined && profile.stellarIdentity.totalRatings !== undefined && profile.stellarIdentity.totalRatings > 0 && (
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-yellow-500">
+                        {"★".repeat(Math.round(profile.stellarIdentity.reputation))}{"☆".repeat(5 - Math.round(profile.stellarIdentity.reputation))}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{profile.stellarIdentity.totalRatings} ratings</p>
+                    </div>
+                  )}
+                </div>
+
+                {profile.stellarIdentity?.skills && profile.stellarIdentity.skills.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.stellarIdentity.skills.map((skill: string) => (
+                      <span key={skill} className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {profile.stellarAddress && (
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/account/${profile.stellarAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors font-mono"
+                  >
+                    <span>{profile.stellarAddress.slice(0, 8)}...{profile.stellarAddress.slice(-6)}</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Social Links */}

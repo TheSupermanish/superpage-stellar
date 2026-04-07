@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IResource extends Document {
   creatorId: mongoose.Types.ObjectId;
   slug?: string;
-  type: 'api' | 'file' | 'article' | 'shopify';
+  type: 'api' | 'file' | 'article' | 'shopify' | 'service';
   name: string;
   description?: string;
   priceUsdc: number;
@@ -33,7 +33,7 @@ const ResourceSchema = new Schema<IResource>(
     type: {
       type: String,
       required: true,
-      enum: ['api', 'file', 'article', 'shopify'],
+      enum: ['api', 'file', 'article', 'shopify', 'service'],
     },
     name: {
       type: String,

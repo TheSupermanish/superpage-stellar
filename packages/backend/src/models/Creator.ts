@@ -21,6 +21,15 @@ export interface ICreator extends Document {
   showStats: boolean;
   isAgent: boolean;
   erc8004AgentId?: number;
+  stellarAddress?: string;
+  stellarIdentity?: {
+    name?: string;
+    type?: string;
+    skills?: string[];
+    reputation?: number;
+    totalRatings?: number;
+    registered?: string;
+  };
   totalSales: number;
   totalRevenueUsdc: number;
   createdAt: Date;
@@ -91,6 +100,19 @@ const CreatorSchema = new Schema<ICreator>(
     erc8004AgentId: {
       type: Number,
       default: null,
+    },
+    stellarAddress: {
+      type: String,
+      trim: true,
+      sparse: true,
+    },
+    stellarIdentity: {
+      name: { type: String },
+      type: { type: String, enum: ['ai', 'human', 'service'] },
+      skills: [{ type: String }],
+      reputation: { type: Number, default: 0 },
+      totalRatings: { type: Number, default: 0 },
+      registered: { type: String },
     },
     totalSales: {
       type: Number,

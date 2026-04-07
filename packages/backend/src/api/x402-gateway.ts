@@ -344,9 +344,62 @@ async function serveResource(resource: any, req: Request, res: Response) {
       return serveArticle(resource, req, res);
     case "shopify":
       return serveShopify(resource, req, res);
+    case "service":
+      return serveService(resource, req, res);
     default:
       return res.status(500).json({ error: `Unknown resource type: ${resource.type}` });
   }
+}
+
+/**
+ * Serve a paid service
+ * Services are on-demand — the config defines what the service does,
+ * and the request body can contain task-specific parameters.
+ */
+async function serveService(resource: any, req: Request, res: Response) {
+  const { service_type, description: serviceDesc, delivery, endpoint } = resource.config || {};
+
+  res.setHeader("X-402-Paid", "true");
+
+  // If service has an execution endpoint, proxy to it
+  if (endpoint) {
+    try {
+      const proxyRes = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resourceId: resource._id.toString(),
+          serviceName: resource.name,
+          params: req.body || {},
+        }),
+      });
+      const data = await proxyRes.json();
+      return res.json({
+        id: resource._id.toString(),
+        name: resource.name,
+        type: "service",
+        serviceType: service_type,
+        result: data,
+        protocol: "x402",
+      });
+    } catch {
+      // Endpoint unavailable — return service info
+    }
+  }
+
+  // Return service confirmation with details
+  return res.json({
+    id: resource._id.toString(),
+    name: resource.name,
+    description: resource.description,
+    type: "service",
+    serviceType: service_type || "general",
+    delivery: delivery || "instant",
+    status: "purchased",
+    message: `Service "${resource.name}" purchased successfully. ${serviceDesc || "The creator will fulfill this service."}`,
+    creator: resource.creatorId?.walletAddress || null,
+    protocol: "x402",
+  });
 }
 
 /**

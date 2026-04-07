@@ -58,6 +58,9 @@ export async function handleGetPublicProfile(req: Request, res: Response) {
         bio: creator.bio,
         website: creator.website,
         walletAddress: creator.walletAddress,
+        isAgent: creator.isAgent,
+        stellarAddress: creator.stellarAddress,
+        stellarIdentity: creator.stellarIdentity,
         socialLinks: creator.socialLinks,
         stats: creator.showStats
           ? {
