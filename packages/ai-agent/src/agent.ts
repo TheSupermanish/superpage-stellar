@@ -38,14 +38,25 @@ function buildSystemPrompt(config: AgentConfig): string {
   const isStellar = config.chainType === "stellar";
   const chainLabel = isStellar ? "Stellar" : config.network;
   const paymentLabel = isStellar ? "USDC on Stellar" : `USDC on ${config.network}`;
-  const trustSection = isStellar ? "" : `
+  const trustSection = isStellar ? `
+### 3. TRUST — On-chain identity and reputation (Stellar)
+- register_identity — register your agent identity on Stellar (name, type, skills — stored on-chain)
+- lookup_agent — verify any agent's on-chain identity and trust score before transacting
+- leave_review — leave an on-chain rating (1-5 stars) after a purchase
+- check_my_identity — check your own registered identity and reputation` : `
 ### 3. TRUST — On-chain identity and reputation (ERC-8004)
 - register_identity — mint your on-chain agent identity NFT (one-time)
 - lookup_agent — look up any agent by ID
 - check_reputation — see an agent's feedback score and history
 - leave_feedback — rate an agent (1-5 scale) after interacting with them
 - check_validations — check third-party validation scores`;
-  const reputationFlow = isStellar ? "" : `
+  const reputationFlow = isStellar ? `
+### Trustless Agent Commerce (Stellar)
+1. register_identity with your name, type ("ai"), and skills (one-time)
+2. Before buying, lookup_agent on the seller to check their trust score
+3. After purchases, leave_review (1-5 stars) to build the trust network
+4. Your reputation score is visible to all agents on stellar.expert
+5. Higher reputation = more trust = more business` : `
 ### Building Reputation
 1. register_identity to get your agent ID (one-time)
 2. After purchases, leave_feedback for the seller (1-5, with tags)
@@ -150,8 +161,37 @@ export async function createAgent(
   const model = await getModel(config);
 
   // Initialize MPP client for transparent auto-payment via fetch()
-  // After this, any fetch() to an MPP-protected endpoint auto-pays
   await initMppClient(config);
+
+  // Auto-register Stellar identity if not already registered
+  if (config.chainType === "stellar") {
+    try {
+      const checkRes = await fetch(`${config.merchantUrl}/api/stellar/identity/${wallet.address}`);
+      const checkData = await checkRes.json();
+      if (!checkData.success) {
+        console.log(`[Agent] Registering Stellar identity...`);
+        const regRes = await fetch(`${config.merchantUrl}/api/stellar/identity/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            secretKey: config.stellarSecretKey,
+            name: "Superio Agent",
+            type: "ai",
+            version: "1.0.0",
+            skills: ["commerce", "research", "payments"],
+          }),
+        });
+        const regData = await regRes.json();
+        if (regData.success) {
+          console.log(`[Agent] Identity registered: ${regData.explorerUrl}`);
+        }
+      } else {
+        console.log(`[Agent] Identity verified: ${checkData.identity?.name} (${checkData.identity?.reputation?.score || 0} stars)`);
+      }
+    } catch {
+      // Identity registration is optional — don't block startup
+    }
+  }
 
   return {
     client,

@@ -15,6 +15,7 @@ import { createFetchUrlTool } from "./fetch-url.js";
 import { createERC8004Tools } from "./erc8004.js";
 import { ERC8004Client } from "../erc8004/index.js";
 import { createMerchantTools, type MerchantState } from "./merchant.js";
+import { createStellarIdentityTools } from "./stellar-identity.js";
 import type { AgentConfig } from "../config.js";
 
 export type { MerchantState } from "./merchant.js";
@@ -61,14 +62,24 @@ export function createAllTools(
     send_intent_mandate: ap2.sendIntentMandate,
     submit_payment_mandate: ap2.submitPaymentMandate,
     fetch_url: createFetchUrlTool(),
-    // ERC-8004 Trustless Identity (EVM only)
-    ...(erc8004Tools ? {
-      register_identity: erc8004Tools.register_identity,
-      lookup_agent: erc8004Tools.lookup_agent,
-      check_reputation: erc8004Tools.check_reputation,
-      leave_feedback: erc8004Tools.leave_feedback,
-      check_validations: erc8004Tools.check_validations,
-    } : {}),
+    // Trustless Identity & Reputation
+    ...(opts.config.chainType === "stellar"
+      ? (() => {
+          const stellar = createStellarIdentityTools(wallet, opts.config);
+          return {
+            register_identity: stellar.register_stellar_identity,
+            lookup_agent: stellar.lookup_stellar_agent,
+            leave_review: stellar.leave_stellar_review,
+            check_my_identity: stellar.check_my_identity,
+          };
+        })()
+      : erc8004Tools ? {
+          register_identity: erc8004Tools.register_identity,
+          lookup_agent: erc8004Tools.lookup_agent,
+          check_reputation: erc8004Tools.check_reputation,
+          leave_feedback: erc8004Tools.leave_feedback,
+          check_validations: erc8004Tools.check_validations,
+        } : {}),
     // Merchant / Creator
     merchant_login: merchant.merchant_login,
     view_my_profile: merchant.view_my_profile,
