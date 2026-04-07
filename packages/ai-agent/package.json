@@ -17,6 +17,7 @@
     "@ai-sdk/anthropic": "^1.2.0",
     "@ai-sdk/google": "^1.2.0",
     "@ai-sdk/openai": "^1.2.0",
+    "@stellar/stellar-sdk": "^15.0.1",
     "ai": "^4.1.0",
     "dotenv": "^17.2.3",
     "ora": "^8.2.0",

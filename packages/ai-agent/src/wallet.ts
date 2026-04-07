@@ -41,6 +41,9 @@ export class Wallet {
 
   constructor(config: AgentConfig) {
     this.config = config;
+    if (!config.walletPrivateKey) {
+      throw new Error("walletPrivateKey is required for EVM Wallet");
+    }
     this.account = privateKeyToAccount(config.walletPrivateKey);
     this.address = this.account.address;
 
@@ -69,7 +72,7 @@ export class Wallet {
   /** Get USDC balance in human-readable format */
   async getUsdcBalance(): Promise<string> {
     const balance = await this.publicClient.readContract({
-      address: this.config.usdcAddress,
+      address: this.config.usdcAddress as `0x${string}`,
       abi: ERC20_ABI,
       functionName: "balanceOf",
       args: [this.address],
@@ -78,15 +81,15 @@ export class Wallet {
   }
 
   /** Transfer USDC to a recipient. Amount in base units (6 decimals). */
-  async transferUsdc(to: Address, amountBaseUnits: string): Promise<Hash> {
+  async transferUsdc(to: string, amountBaseUnits: string): Promise<string> {
     const amount = BigInt(amountBaseUnits);
 
     // Simulate first for better error messages
     const { request } = await this.publicClient.simulateContract({
-      address: this.config.usdcAddress,
+      address: this.config.usdcAddress as `0x${string}`,
       abi: ERC20_ABI,
       functionName: "transfer",
-      args: [to, amount],
+      args: [to as `0x${string}`, amount],
       account: this.account,
     });
 
@@ -94,9 +97,9 @@ export class Wallet {
   }
 
   /** Wait for a transaction to be confirmed */
-  async waitForTx(hash: Hash): Promise<boolean> {
+  async waitForTx(hash: string): Promise<boolean> {
     const receipt = await this.publicClient.waitForTransactionReceipt({
-      hash,
+      hash: hash as `0x${string}`,
       confirmations: 0,
     });
     return receipt.status === "success";
@@ -108,7 +111,7 @@ export class Wallet {
   }
 
   /** Sign an arbitrary message with the wallet's private key (EIP-191) */
-  async signMessage(message: string): Promise<`0x${string}`> {
+  async signMessage(message: string): Promise<string> {
     return this.account.signMessage({ message });
   }
 }

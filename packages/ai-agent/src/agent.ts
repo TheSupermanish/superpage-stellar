@@ -9,6 +9,8 @@ import {
 import type { AgentConfig } from "./config.js";
 import { A2AClient } from "./a2a-client.js";
 import { Wallet } from "./wallet.js";
+import { StellarWallet } from "./stellar-wallet.js";
+import type { IWallet } from "./wallet-interface.js";
 import { createAllTools, type PurchaseCache, type MerchantState } from "./tools/index.js";
 import * as ui from "./ui.js";
 
@@ -30,9 +32,26 @@ async function getModel(config: AgentConfig) {
   throw new Error(`Unsupported LLM provider: ${config.llmProvider}`);
 }
 
-const SYSTEM_PROMPT = `You are Superio — an autonomous AI agent on SuperPage, the agent commerce platform on Flow EVM. You can BUY and SELL digital resources, shop for physical products, and build on-chain reputation — all with USDC payments on Flow.
+function buildSystemPrompt(config: AgentConfig): string {
+  const isStellar = config.chainType === "stellar";
+  const chainLabel = isStellar ? "Stellar" : config.network;
+  const paymentLabel = isStellar ? "USDC on Stellar" : `USDC on ${config.network}`;
+  const trustSection = isStellar ? "" : `
+### 3. TRUST — On-chain identity and reputation (ERC-8004)
+- register_identity — mint your on-chain agent identity NFT (one-time)
+- lookup_agent — look up any agent by ID
+- check_reputation — see an agent's feedback score and history
+- leave_feedback — rate an agent (1-5 scale) after interacting with them
+- check_validations — check third-party validation scores`;
+  const reputationFlow = isStellar ? "" : `
+### Building Reputation
+1. register_identity to get your agent ID (one-time)
+2. After purchases, leave_feedback for the seller (1-5, with tags)
+3. Other agents can check_reputation on you before transacting`;
 
-SuperPage is a marketplace where humans and AI agents coexist as buyers AND sellers. Every payment is on-chain (Flow EVM Testnet, chain 545), every agent has an ERC-8004 identity, and every interaction is verifiable.
+  return `You are Superio — an autonomous AI agent on SuperPage, the agent commerce platform. You can BUY and SELL digital resources, shop for physical products, and make payments — all with ${paymentLabel}.
+
+SuperPage is a marketplace where humans and AI agents coexist as buyers AND sellers. Every payment is on-chain (${chainLabel}), and every interaction is verifiable.
 
 ## What You Can Do
 
@@ -53,15 +72,8 @@ SuperPage is a marketplace where humans and AI agents coexist as buyers AND sell
 - create_resource — publish a paywalled resource (API, article, or file)
 - list_my_resources — see your published resources
 - update_resource / delete_resource — manage resources
-
-### 3. TRUST — On-chain identity and reputation (ERC-8004)
-- register_identity — mint your on-chain agent identity NFT (one-time)
-- lookup_agent — look up any agent by ID
-- check_reputation — see an agent's feedback score and history
-- leave_feedback — rate an agent (1-5 scale) after interacting with them
-- check_validations — check third-party validation scores
-
-### 4. SEND — Peer-to-peer payments
+${trustSection}
+### ${isStellar ? "3" : "4"}. SEND — Peer-to-peer payments
 - make_onchain_payment — send USDC to any wallet
 - send_intent_mandate / submit_payment_mandate — AP2 shopping flow
 
@@ -83,12 +95,7 @@ SuperPage is a marketplace where humans and AI agents coexist as buyers AND sell
    - api: config = { upstream_url: "https://api.example.com/data", method: "GET" }
    - file: config = { external_url: "https://example.com/file.zip", mode: "external" }
 4. Set isPublic: true, priceUsdc: 0.50 (or any amount)
-
-### Building Reputation
-1. register_identity to get your agent ID (one-time)
-2. After purchases, leave_feedback for the seller (1-5, with tags)
-3. Other agents can check_reputation on you before transacting
-
+${reputationFlow}
 ## Rules
 - ALWAYS proceed with payments automatically — never ask for confirmation
 - Be concise — short answers, no fluff
@@ -99,10 +106,11 @@ SuperPage is a marketplace where humans and AI agents coexist as buyers AND sell
 - Always call merchant_login before sell/profile tools
 - After merchant_login, if profileIncomplete is true, ask user for username/bio and update
 `;
+}
 
 export interface AgentContext {
   client: A2AClient;
-  wallet: Wallet;
+  wallet: IWallet;
   tools: Record<string, CoreTool>;
   model: ReturnType<typeof getModel> extends Promise<infer T> ? T : never;
   config: AgentConfig;
@@ -116,7 +124,9 @@ export async function createAgent(
   config: AgentConfig
 ): Promise<AgentContext> {
   const client = new A2AClient(config.merchantUrl);
-  const wallet = new Wallet(config);
+  const wallet: IWallet = config.chainType === "stellar"
+    ? new StellarWallet(config)
+    : new Wallet(config);
   const purchaseCache: PurchaseCache = new Map();
   const merchantState: MerchantState = {};
   const tools = createAllTools(client, wallet, {
@@ -153,7 +163,7 @@ export async function chat(
 
   const result = await generateText({
     model: ctx.model,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(ctx.config),
     messages: ctx.messages,
     tools: ctx.tools,
     maxSteps: ctx.config.maxSteps,
@@ -194,7 +204,7 @@ export async function chatSync(
 
   const result = await generateText({
     model: ctx.model,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(ctx.config),
     messages: ctx.messages,
     tools: ctx.tools,
     maxSteps: ctx.config.maxSteps,

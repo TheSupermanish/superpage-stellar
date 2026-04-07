@@ -2,7 +2,7 @@
  * All AI SDK tools for the A2A buyer agent.
  */
 import type { A2AClient } from "../a2a-client.js";
-import type { Wallet } from "../wallet.js";
+import type { IWallet } from "../wallet-interface.js";
 import { createDiscoverTool } from "./discover.js";
 import { createBrowseTools } from "./browse.js";
 import { createPurchaseTool } from "./purchase.js";
@@ -27,7 +27,7 @@ export type PurchaseCache = Map<
 
 export function createAllTools(
   client: A2AClient,
-  wallet: Wallet,
+  wallet: IWallet,
   opts: {
     autoApprovePayments?: boolean;
     purchaseCache?: PurchaseCache;
@@ -39,8 +39,10 @@ export function createAllTools(
   const merchantState: MerchantState = opts.merchantState || {};
   const browse = createBrowseTools(client);
   const ap2 = createAP2MandateTools(client);
-  const erc8004 = new ERC8004Client(opts.config.walletPrivateKey);
-  const erc8004Tools = createERC8004Tools(erc8004);
+  const erc8004 = opts.config.walletPrivateKey
+    ? new ERC8004Client(opts.config.walletPrivateKey)
+    : null;
+  const erc8004Tools = erc8004 ? createERC8004Tools(erc8004) : null;
   const merchant = createMerchantTools(wallet, opts.config, merchantState);
 
   return {
@@ -52,18 +54,21 @@ export function createAllTools(
     access_resource: createAccessResourceTool(client, cache),
     make_onchain_payment: createMakePaymentTool(wallet, {
       autoApprove: opts.autoApprovePayments,
+      config: opts.config,
     }),
-    submit_payment_proof: createSubmitPaymentTool(client, cache),
+    submit_payment_proof: createSubmitPaymentTool(client, cache, opts.config),
     check_task_status: createCheckTaskTool(client),
     send_intent_mandate: ap2.sendIntentMandate,
     submit_payment_mandate: ap2.submitPaymentMandate,
     fetch_url: createFetchUrlTool(),
-    // ERC-8004 Trustless Identity
-    register_identity: erc8004Tools.register_identity,
-    lookup_agent: erc8004Tools.lookup_agent,
-    check_reputation: erc8004Tools.check_reputation,
-    leave_feedback: erc8004Tools.leave_feedback,
-    check_validations: erc8004Tools.check_validations,
+    // ERC-8004 Trustless Identity (EVM only)
+    ...(erc8004Tools ? {
+      register_identity: erc8004Tools.register_identity,
+      lookup_agent: erc8004Tools.lookup_agent,
+      check_reputation: erc8004Tools.check_reputation,
+      leave_feedback: erc8004Tools.leave_feedback,
+      check_validations: erc8004Tools.check_validations,
+    } : {}),
     // Merchant / Creator
     merchant_login: merchant.merchant_login,
     view_my_profile: merchant.view_my_profile,

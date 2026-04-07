@@ -4,7 +4,7 @@
  */
 import { tool } from "ai";
 import { z } from "zod";
-import type { Wallet } from "../wallet.js";
+import type { IWallet } from "../wallet-interface.js";
 import type { AgentConfig } from "../config.js";
 import * as ui from "../ui.js";
 
@@ -56,7 +56,7 @@ function requireAuth(state: MerchantState): string | null {
 }
 
 export function createMerchantTools(
-  wallet: Wallet,
+  wallet: IWallet,
   config: AgentConfig,
   state: MerchantState
 ) {

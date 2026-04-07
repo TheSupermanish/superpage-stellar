@@ -1,13 +1,18 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { A2AClient } from "../a2a-client.js";
+import type { AgentConfig } from "../config.js";
 import type { A2ATask, DataPart, Part } from "../types.js";
 import type { PurchaseCache } from "./index.js";
 
 export function createSubmitPaymentTool(
   client: A2AClient,
-  cache: PurchaseCache
+  cache: PurchaseCache,
+  config?: AgentConfig
 ) {
+  const defaultNetwork = config?.network || "base-sepolia";
+  const defaultChainId = config?.chainId || 0;
+
   return tool({
     description:
       "Submit on-chain payment proof to the merchant agent for verification. Call this after make_onchain_payment succeeds, providing the transaction hash and task ID. The merchant verifies the payment on-chain and completes the task. Returns the resource content if available.",
@@ -23,11 +28,11 @@ export function createSubmitPaymentTool(
       network: z
         .string()
         .optional()
-        .describe("Network (default bite-v2-sandbox)"),
+        .describe(`Network (default ${defaultNetwork})`),
       chainId: z
         .number()
         .optional()
-        .describe("Chain ID (default 103698795)"),
+        .describe(`Chain ID (default ${defaultChainId})`),
     }),
     execute: async ({ taskId, transactionHash, network, chainId }) => {
       let response;
@@ -37,8 +42,8 @@ export function createSubmitPaymentTool(
           taskId,
           payment: {
             transactionHash,
-            network: network || "bite-v2-sandbox",
-            chainId: chainId || 103698795,
+            network: network || defaultNetwork,
+            chainId: chainId || defaultChainId,
             timestamp: Date.now(),
           },
         });
