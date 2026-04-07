@@ -10,6 +10,9 @@ export interface IAccessLog extends Document {
   ipAddress?: string;
   userAgent?: string;
   accessedAt: Date;
+  rating?: number;
+  ratingComment?: string;
+  ratedAt?: Date;
 }
 
 const AccessLogSchema = new Schema<IAccessLog>(
@@ -50,6 +53,18 @@ const AccessLogSchema = new Schema<IAccessLog>(
     accessedAt: {
       type: Date,
       default: Date.now,
+    },
+    rating: {
+      type: Number,
+      min: 1,
+      max: 5,
+    },
+    ratingComment: {
+      type: String,
+      maxlength: 200,
+    },
+    ratedAt: {
+      type: Date,
     },
   },
   {
