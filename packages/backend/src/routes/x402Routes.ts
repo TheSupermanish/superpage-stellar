@@ -1,6 +1,7 @@
 import { Router, type Router as ExpressRouter, Request, Response, NextFunction } from "express";
 import { handleResourceAccess } from "../api/x402-gateway.js";
 import { handleEthStoreProductAccess, handleEthTest, handleEthCheckout } from "../api/x402-eth-gateway.js";
+import { handleMppResourceAccess, handleListMppResources } from "../api/mpp-gateway.js";
 
 const router: ExpressRouter = Router();
 
@@ -60,5 +61,23 @@ router.get("/eth/store/:storeId/product/:productId", handleEthStoreProductAccess
  * @access  Public
  */
 router.post("/eth/store/:storeId/checkout", handleEthCheckout);
+
+// ============================================================
+// MPP (Machine Payments Protocol) GATEWAY
+// ============================================================
+
+/**
+ * @route   GET /x402/mpp/resources
+ * @desc    List resources available via MPP
+ * @access  Public
+ */
+router.get("/mpp/resources", handleListMppResources);
+
+/**
+ * @route   GET /x402/mpp/resource/:resourceId
+ * @desc    Access a resource via MPP payment (Stellar Charge)
+ * @access  Public (MPP payment protected)
+ */
+router.get("/mpp/resource/:resourceId", handleMppResourceAccess);
 
 export default router;

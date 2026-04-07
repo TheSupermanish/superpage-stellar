@@ -12,6 +12,7 @@ import { Wallet } from "./wallet.js";
 import { StellarWallet } from "./stellar-wallet.js";
 import type { IWallet } from "./wallet-interface.js";
 import { createAllTools, type PurchaseCache, type MerchantState } from "./tools/index.js";
+import { initMppClient } from "./mpp-client.js";
 import * as ui from "./ui.js";
 
 async function getModel(config: AgentConfig) {
@@ -136,6 +137,10 @@ export async function createAgent(
     merchantState,
   });
   const model = await getModel(config);
+
+  // Initialize MPP client for transparent auto-payment via fetch()
+  // After this, any fetch() to an MPP-protected endpoint auto-pays
+  await initMppClient(config);
 
   return {
     client,
