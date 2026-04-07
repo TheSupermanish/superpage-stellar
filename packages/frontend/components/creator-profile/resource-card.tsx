@@ -3,7 +3,7 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Code, FileText, Globe, ShoppingBag, Eye, Wrench } from "lucide-react";
+import { Code, FileText, Globe, ShoppingBag, Eye, Wrench, Star, BadgeCheck } from "lucide-react";
 import { getCurrencyDisplay } from "@/lib/chain-config";
 
 interface Resource {
@@ -15,6 +15,8 @@ interface Resource {
   priceUsdc: number;
   accessCount: number;
   isActive: boolean;
+  averageRating?: number;
+  totalRatings?: number;
 }
 
 interface ResourceCardProps {
@@ -42,18 +44,38 @@ export function ResourceCard({ resource, onAccess }: ResourceCardProps) {
   const Icon = resourceIcons[resource.type as keyof typeof resourceIcons] || Code;
   const colorClass = resourceColors[resource.type as keyof typeof resourceColors] || resourceColors.api;
 
+  const isVerified = (resource.averageRating || 0) >= 4.0 && (resource.totalRatings || 0) >= 3;
+  const hasRatings = (resource.totalRatings || 0) > 0;
+
   return (
-    <Card className="bg-card border-border hover:border-primary/30 transition-all group">
+    <Card className={`bg-card border-border hover:border-primary/30 transition-all group ${isVerified ? "ring-1 ring-primary/20" : ""}`}>
       <CardContent className="pt-6">
-        {/* Icon */}
-        <div className={`h-12 w-12 rounded-xl ${colorClass} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-          <Icon className="h-6 w-6" />
+        {/* Icon + Verified Badge */}
+        <div className="flex items-start justify-between mb-4">
+          <div className={`h-12 w-12 rounded-xl ${colorClass} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+            <Icon className="h-6 w-6" />
+          </div>
+          {isVerified && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/20" title="Verified — highly rated by buyers">
+              <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium text-primary">Verified</span>
+            </div>
+          )}
         </div>
 
-        {/* Type Badge */}
-        <Badge variant="outline" className="mb-3 capitalize border-border text-muted-foreground">
-          {resource.type}
-        </Badge>
+        {/* Type Badge + Rating */}
+        <div className="flex items-center gap-2 mb-3">
+          <Badge variant="outline" className="capitalize border-border text-muted-foreground">
+            {resource.type}
+          </Badge>
+          {hasRatings && (
+            <div className="flex items-center gap-1 text-xs text-yellow-500">
+              <Star className="h-3 w-3 fill-current" />
+              <span className="font-medium">{resource.averageRating?.toFixed(1)}</span>
+              <span className="text-muted-foreground">({resource.totalRatings})</span>
+            </div>
+          )}
+        </div>
 
         {/* Title */}
         <h3 className="font-semibold text-lg mb-2 line-clamp-1">{resource.name}</h3>

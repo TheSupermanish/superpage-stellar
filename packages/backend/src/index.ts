@@ -27,6 +27,10 @@ import {
   handleLookupIdentity,
   handleUpdateReputation,
 } from "./api/stellar-identity-api.js";
+import {
+  handleRateResource,
+  handleGetResourceRating,
+} from "./api/resource-rating.js";
 
 // Error handling
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -123,6 +127,10 @@ app.use("/", storeRoutes);
 
 // Orders & checkout (mixed /api/* and /x402/* paths, mounted at root)
 app.use("/", orderRoutes);
+
+// Resource ratings
+app.post("/api/resources/:resourceId/rate", handleRateResource);
+app.get("/api/resources/:resourceId/rating", handleGetResourceRating);
 
 // Stellar Agent Identity (ERC-8004 equivalent)
 app.post("/api/stellar/identity/register", handleRegisterIdentity);

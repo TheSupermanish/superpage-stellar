@@ -12,6 +12,8 @@ export interface IResource extends Document {
   isPublic: boolean;
   accessCount: number;
   totalRevenue: number;
+  averageRating: number;
+  totalRatings: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +67,17 @@ const ResourceSchema = new Schema<IResource>(
       min: 0,
     },
     totalRevenue: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    totalRatings: {
       type: Number,
       default: 0,
       min: 0,

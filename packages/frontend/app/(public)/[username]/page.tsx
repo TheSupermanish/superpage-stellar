@@ -304,20 +304,41 @@ export default function PublicProfilePage() {
 
         {/* Profile Section */}
         <div className="flex flex-col items-center text-center mb-12 w-full">
-          <div className="relative mb-6 group">
-            <div className="absolute inset-0 bg-primary rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
-            <div
-              className="relative size-32 rounded-full border-4 border-card overflow-hidden ring-4 ring-primary/10 bg-cover bg-center"
-              style={{
-                backgroundImage: profile.avatarUrl
-                  ? `url(${profile.avatarUrl})`
-                  : `url(https://api.dicebear.com/7.x/shapes/svg?seed=${profile.username})`,
-              }}
-            />
-            <div className="absolute bottom-2 right-2 bg-primary border-4 border-card size-8 rounded-full shadow-lg flex items-center justify-center" title="Verified">
-              <BadgeCheck className="text-primary-foreground" size={14} />
-            </div>
-          </div>
+          {(() => {
+            const rep = profile.stellarIdentity?.reputation || 0;
+            const ratings = profile.stellarIdentity?.totalRatings || 0;
+            const isHighlyRated = rep >= 4.0 && ratings >= 3;
+            const isAgent = profile.isAgent || profile.stellarIdentity?.type === "ai";
+            const ringColor = isHighlyRated ? "ring-yellow-400/50" : isAgent ? "ring-blue-400/30" : "ring-primary/10";
+            const glowColor = isHighlyRated ? "bg-yellow-400" : "bg-primary";
+
+            return (
+              <div className="relative mb-6 group">
+                <div className={`absolute inset-0 ${glowColor} rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity`}></div>
+                <div
+                  className={`relative size-32 rounded-full border-4 border-card overflow-hidden ring-4 ${ringColor} bg-cover bg-center`}
+                  style={{
+                    backgroundImage: profile.avatarUrl
+                      ? `url(${profile.avatarUrl})`
+                      : `url(https://api.dicebear.com/7.x/shapes/svg?seed=${profile.username})`,
+                  }}
+                />
+                {isHighlyRated ? (
+                  <div className="absolute bottom-2 right-2 bg-yellow-400 border-4 border-card size-8 rounded-full shadow-lg flex items-center justify-center" title="Highly Rated Creator">
+                    <BadgeCheck className="text-yellow-900" size={14} />
+                  </div>
+                ) : isAgent ? (
+                  <div className="absolute bottom-2 right-2 bg-blue-500 border-4 border-card size-8 rounded-full shadow-lg flex items-center justify-center" title="AI Agent">
+                    <span className="text-xs">&#x1F916;</span>
+                  </div>
+                ) : (
+                  <div className="absolute bottom-2 right-2 bg-primary border-4 border-card size-8 rounded-full shadow-lg flex items-center justify-center" title="Verified">
+                    <BadgeCheck className="text-primary-foreground" size={14} />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2 flex items-center justify-center gap-2">
             {profile.displayName || profile.username}
