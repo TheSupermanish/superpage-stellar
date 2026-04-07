@@ -27,11 +27,12 @@ import {
   Link as LinkIcon,
   Rss,
   FileDown,
+  Wrench,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-type ResourceType = "api" | "file" | "article";
+type ResourceType = "api" | "file" | "article" | "service";
 
 interface ResourceTypeOption {
   type: ResourceType;
@@ -70,6 +71,13 @@ const resourceTypes: ResourceTypeOption[] = [
     icon: Rss,
     color: "text-sp-gold border-sp-gold/30 bg-sp-gold/10",
   },
+  {
+    type: "service",
+    title: "Service",
+    description: "Sell a service — AI processing, consulting, design, audits",
+    icon: Wrench,
+    color: "text-emerald-500 border-emerald-500/30 bg-emerald-500/10",
+  },
 ];
 
 export default function NewResourcePage() {
@@ -100,6 +108,11 @@ export default function NewResourcePage() {
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState("");
   const [fileName, setFileName] = useState("");
+
+  // Service specific
+  const [serviceType, setServiceType] = useState("ai-processing");
+  const [serviceDelivery, setServiceDelivery] = useState<"instant" | "async">("instant");
+  const [serviceEndpoint, setServiceEndpoint] = useState("");
 
   const handleSelectType = (type: ResourceType) => {
     setSelectedType(type);
@@ -160,6 +173,13 @@ export default function NewResourcePage() {
           } else {
             config = { content, mode: "direct" };
           }
+          break;
+        case "service":
+          config = {
+            service_type: serviceType,
+            delivery: serviceDelivery,
+            ...(serviceEndpoint ? { endpoint: serviceEndpoint } : {}),
+          };
           break;
       }
 
@@ -531,6 +551,76 @@ export default function NewResourcePage() {
                       </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Service Fields */}
+              {selectedType === "service" && (
+                <div className="space-y-4 p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                  <div>
+                    <Label htmlFor="serviceType" className="text-foreground mb-2 block">Service Category</Label>
+                    <select
+                      id="serviceType"
+                      value={serviceType}
+                      onChange={(e) => setServiceType(e.target.value)}
+                      className="w-full bg-muted border border-border text-foreground rounded-lg px-3 py-2"
+                    >
+                      <option value="ai-processing">AI Processing</option>
+                      <option value="data-analysis">Data Analysis</option>
+                      <option value="creative">Creative / Design</option>
+                      <option value="development">Development</option>
+                      <option value="security">Security / Audit</option>
+                      <option value="consulting">Consulting</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label className="text-foreground mb-2 block">Delivery</Label>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setServiceDelivery("instant")}
+                        className={`flex-1 p-3 rounded-xl border text-sm font-medium transition-all ${
+                          serviceDelivery === "instant"
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-500"
+                            : "border-border text-muted-foreground hover:border-border"
+                        }`}
+                      >
+                        Instant
+                        <p className="text-xs opacity-70 mt-1">Delivered immediately after payment</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setServiceDelivery("async")}
+                        className={`flex-1 p-3 rounded-xl border text-sm font-medium transition-all ${
+                          serviceDelivery === "async"
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-500"
+                            : "border-border text-muted-foreground hover:border-border"
+                        }`}
+                      >
+                        Async
+                        <p className="text-xs opacity-70 mt-1">Creator fulfills within 24-48h</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="serviceEndpoint" className="text-foreground mb-2 block">
+                      Execution Endpoint (optional)
+                    </Label>
+                    <input
+                      id="serviceEndpoint"
+                      type="url"
+                      value={serviceEndpoint}
+                      onChange={(e) => setServiceEndpoint(e.target.value)}
+                      placeholder="https://your-api.com/execute"
+                      className="w-full bg-muted border border-border text-foreground rounded-lg px-3 py-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      If set, SuperPage will POST task parameters to this URL after payment
+                    </p>
+                  </div>
                 </div>
               )}
 

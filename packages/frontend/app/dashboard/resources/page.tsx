@@ -37,6 +37,7 @@ import {
   DollarSign,
   Filter,
   Store,
+  Wrench,
 } from "lucide-react";
 import { getCurrencyDisplay } from "@/lib/chain-config";
 
@@ -45,7 +46,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 interface Resource {
   id: string;
   slug: string;
-  type: "api" | "file" | "article" | "shopify";
+  type: "api" | "file" | "article" | "shopify" | "service";
   name: string;
   description: string | null;
   priceUsdc: number;
@@ -86,6 +87,7 @@ const typeIcons = {
   file: FileText,
   article: Globe,
   shopify: ShoppingBag,
+  service: Wrench,
 };
 
 const typeColors = {
@@ -93,6 +95,7 @@ const typeColors = {
   file: "text-sp-gold bg-sp-gold/10",
   article: "text-sp-coral bg-sp-coral/10",
   shopify: "text-sp-pink bg-sp-pink/10",
+  service: "text-emerald-500 bg-emerald-500/10",
 };
 
 export default function ResourcesPage() {
@@ -108,7 +111,7 @@ export default function ResourcesPage() {
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   // Filtering state
-  const [activeTab, setActiveTab] = useState<"all" | "api" | "file" | "article" | "stores">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "api" | "file" | "article" | "service" | "stores">("all");
   const [selectedStore, setSelectedStore] = useState<string>("all");
 
   // Check for tab query parameter on mount
@@ -370,6 +373,17 @@ export default function ResourcesPage() {
         >
           <Globe className="h-4 w-4" />
           Articles ({resources.filter((r) => r.type === "article").length})
+        </button>
+        <button
+          onClick={() => setActiveTab("service")}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${
+            activeTab === "service"
+              ? "bg-sp-gold text-white shadow-lg shadow-sp-gold/10"
+              : "text-muted-foreground hover:text-sp-gold hover:bg-sp-gold/10"
+          }`}
+        >
+          <Wrench className="h-4 w-4" />
+          Services ({resources.filter((r) => r.type === "service").length})
         </button>
         <button
           onClick={() => {
